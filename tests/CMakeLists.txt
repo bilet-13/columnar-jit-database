@@ -8,6 +8,8 @@ add_executable(minidb_tests
   catalog/catalog_test.cpp
   common/schema_test.cpp
   execution/batch_test.cpp
+  execution/filter_test.cpp
+  execution/scan_test.cpp
   plan/expression_test.cpp
   plan/logical_plan_test.cpp
   plan/plan_builder_test.cpp

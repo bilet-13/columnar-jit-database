@@ -9,6 +9,8 @@
 add_library(minidb_core STATIC
   catalog/catalog.cpp
   common/schema.cpp
+  execution/interpreter/filter.cpp
+  execution/seq_scan.cpp
   plan/expression.cpp
   plan/logical_plan.cpp
   plan/plan_builder.cpp
