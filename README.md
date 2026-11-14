@@ -1,65 +1,101 @@
-# single_store_like_miniDB
+# column_jit-db
 
-一個用 C++20 寫的迷你 columnstore 查詢引擎，拿來實作三項技術並量出數字：
-**SIMD 向量化執行**、**query optimizer（costing + DP search）**、**LLVM JIT codegen**。
+A miniature columnstore query engine written in C++20, built to implement three
+techniques and measure them: **SIMD vectorized execution**, a **query optimizer
+(costing + DP search)**, and **LLVM JIT codegen**.
 
-個人學習專案，與 SingleStore 無任何關係，未使用其程式碼。
+The same query plan runs through three different executors — a tree-walking
+interpreter, a hand-written NEON vectorized path, and a path whose WHERE clause
+is compiled to machine code at run time — so the cost of each technique can be
+measured against the same baseline.
 
-> 設計文件與實作計畫在 `docs/`（未納入版控）。
+## Status
 
-## 現況
+| Phase | Contents | State |
+|-------|----------|-------|
+| 0 | CMake skeleton, sanitizer build, GoogleTest / Google Benchmark | Done |
+| 1 | Interpreter (scan / filter / hash join / SUM) and a reference implementation | Done |
+| 2 | Vectorized execution with NEON SIMD | Not started |
+| 3 | Optimizer (statistics, cost model, DP join search) | Not started |
+| 4 | LLVM ORC JIT codegen | Not started |
+| 5 | Benchmark write-up | Not started |
 
-| Phase | 內容 | 狀態 |
-|-------|------|------|
-| 0 | CMake 骨架、sanitizer build、GoogleTest / Google Benchmark | 完成 |
-| 1 | Interpreter（scan / filter / hash join / SUM）+ 參考實作 | 完成 |
-| 2 | Vectorized + NEON SIMD | 未開始 |
-| 3 | Optimizer（statistics / cost model / DP join search） | 未開始 |
-| 4 | LLVM ORC JIT codegen | 未開始 |
-| 5 | README 與 benchmark 整理 | 未開始 |
+## Design
 
-## 環境
+Three decisions shape everything else:
 
-| 項目 | 版本 |
-|------|------|
-| 機器 | MacBook M1（Apple Silicon，ARM64） |
-| 語言 | C++20 |
-| 編譯器 | Homebrew clang 23.1.5（`brew install llvm`） |
-| 建置 | CMake ≥ 3.24 + Ninja |
-| 測試 | GoogleTest v1.15.2（FetchContent 自動下載） |
-| 效能 | Google Benchmark v1.9.0（FetchContent 自動下載） |
+- **Pull-based operators.** Every operator exposes a single `Next()` that the
+  layer above calls. Hash join has to drain one input completely before it can
+  probe the other, which is a plain `while` loop in this shape and a state
+  machine in the push-based alternative.
+- **One operator tree, three filters.** Scan, hash join and aggregate exist
+  once. Only the filter has three implementations, so comparing the executors
+  compares filters and nothing else.
+- **Columns are split into fixed-size chunks.** A chunk is the unit of work for
+  parallel scans and the place a zone map will keep its min/max. Chunk size is a
+  multiple of batch size, so a batch never straddles a boundary and scans hand
+  out pointers instead of copying rows.
+
+## Environment
+
+| Item | Version |
+|------|---------|
+| Machine | MacBook M1 (Apple Silicon, ARM64) |
+| Language | C++20 |
+| Compiler | Homebrew clang 23.1.5 (`brew install llvm`) |
+| Build | CMake ≥ 3.24 + Ninja |
+| Unit tests | GoogleTest v1.15.2 (fetched by CMake) |
+| Benchmarks | Google Benchmark v1.9.0 (fetched by CMake) |
 | SIMD | NEON intrinsics |
-| Codegen | LLVM ORC JIT 23.1.5（與編譯器同一包） |
+| Codegen | LLVM ORC JIT 23.1.5 (same package as the compiler) |
 
-## 建置
+## Building
 
-兩個 build 目錄，用途不同、不能共用（sanitizer 是編譯期旗標）：
+Two build directories with different jobs. They cannot be shared, because
+sanitizers are a compile-time choice.
 
 ```bash
-# 乾淨的 Release build —— 跑 benchmark 用
+# Clean release build — for benchmarks
 cmake -GNinja -B build -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++"
 ninja -C build
+```
 
-# ASan + UBSan build —— 跑測試用（bench target 會自動關掉）
+```bash
+# ASan + UBSan build — for tests (the bench target is switched off automatically)
 cmake -GNinja -B build-asan -DCMAKE_BUILD_TYPE=Debug \
       -DMINIDB_ENABLE_ASAN=ON -DMINIDB_ENABLE_UBSAN=ON \
       -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++"
 ninja -C build-asan
 ```
 
-## 測試與 benchmark
+Enabling any sanitizer disables the benchmark target, so timings can never come
+from instrumented code.
+
+## Tests and benchmarks
 
 ```bash
-ctest --test-dir build-asan --output-on-failure   # 測試（插樁版）
-./build/bench/minidb_bench                       # benchmark（乾淨版）
+ctest --test-dir build-asan --output-on-failure   # instrumented
 ```
 
-## Benchmark 數字
+```bash
+./build/bench/minidb_bench                       # clean
+```
 
-Phase 2 之後填入，見 `docs/results.md`。
+Correctness is checked two ways. Every query is compared against a reference
+implementation that reads the raw data with plain loops and touches none of the
+engine, and the three executors are compared against each other.
 
-## 刻意不做
+The dataset is generated in memory from a fixed seed, with a deliberately narrow
+value range so a sum over a million rows cannot overflow and the executors agree
+bit for bit.
 
-持久化（磁碟、WAL、crash recovery）、transaction / MVCC、分散式、完整 SQL。
-這些與本專案要展示的三項技術無關。資料在記憶體中由固定 seed 的產生器建立。
+## Benchmark numbers
+
+Filled in from Phase 2 onwards.
+
+## Out of scope
+
+Persistence (disk, write-ahead log, crash recovery), transactions and MVCC,
+distribution, and full SQL. None of them bear on the three techniques this
+project exists to demonstrate.
