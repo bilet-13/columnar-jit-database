@@ -8,6 +8,8 @@
 
 add_library(minidb_core STATIC
   common/schema.cpp
+  storage/column.cpp
+  storage/table.cpp
 )
 
 target_include_directories(minidb_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

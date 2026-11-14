@@ -6,6 +6,7 @@
 add_executable(minidb_tests
   smoke_test.cpp
   common/schema_test.cpp
+  storage/column_test.cpp
 )
 
 # minidb_core 把 src/ 設成 PUBLIC include 路徑，所以測試可以直接
