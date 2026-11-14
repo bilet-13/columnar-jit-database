@@ -9,6 +9,8 @@ add_executable(minidb_tests
   common/schema_test.cpp
   execution/batch_test.cpp
   execution/filter_test.cpp
+  execution/hash_join_test.cpp
+  execution/hash_table_test.cpp
   execution/scan_test.cpp
   plan/expression_test.cpp
   plan/logical_plan_test.cpp
