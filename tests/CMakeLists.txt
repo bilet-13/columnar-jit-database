@@ -9,6 +9,7 @@ add_executable(minidb_tests
   common/schema_test.cpp
   plan/expression_test.cpp
   plan/logical_plan_test.cpp
+  plan/plan_builder_test.cpp
   storage/column_test.cpp
 )
 
