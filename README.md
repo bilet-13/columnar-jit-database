@@ -11,8 +11,8 @@
 
 | Phase | 內容 | 狀態 |
 |-------|------|------|
-| 0 | CMake 骨架、sanitizer build、GoogleTest / Google Benchmark | 進行中 |
-| 1 | Interpreter（scan / filter / hash join / SUM）+ 參考實作 | 未開始 |
+| 0 | CMake 骨架、sanitizer build、GoogleTest / Google Benchmark | 完成 |
+| 1 | Interpreter（scan / filter / hash join / SUM）+ 參考實作 | 完成 |
 | 2 | Vectorized + NEON SIMD | 未開始 |
 | 3 | Optimizer（statistics / cost model / DP join search） | 未開始 |
 | 4 | LLVM ORC JIT codegen | 未開始 |
