@@ -50,9 +50,9 @@ include(Dependencies)
 
 # ---------------------------------------------------------------------------
 # 子目錄
-#
-# src/ 從 Phase 1（C1.1）才會出現。
 # ---------------------------------------------------------------------------
+add_subdirectory(src)
+
 if(MINIDB_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)

@@ -5,15 +5,16 @@
 
 add_executable(minidb_tests
   smoke_test.cpp
+  common/schema_test.cpp
 )
 
+# minidb_core 把 src/ 設成 PUBLIC include 路徑，所以測試可以直接
+# #include "common/schema.h"。
 target_link_libraries(minidb_tests PRIVATE
   GTest::gtest_main
+  minidb_core
   minidb_sanitizers
 )
-
-# Phase 1 之後測試會 #include "storage/column.h" 這種路徑
-target_include_directories(minidb_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
 
 target_compile_options(minidb_tests PRIVATE -Wall -Wextra)
 
