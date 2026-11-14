@@ -7,6 +7,7 @@
 # 也必須帶上同一組 sanitizer 旗標（整支程式必須一致）。
 
 add_library(minidb_core STATIC
+  catalog/catalog.cpp
   common/schema.cpp
   storage/column.cpp
   storage/table.cpp

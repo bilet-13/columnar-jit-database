@@ -5,6 +5,7 @@
 
 add_executable(minidb_tests
   smoke_test.cpp
+  catalog/catalog_test.cpp
   common/schema_test.cpp
   storage/column_test.cpp
 )
