@@ -1,0 +1,10 @@
+.DS_Store
+build*/
+
+# clangd / 編輯器
+.cache/
+compile_commands.json
+
+# 個人規劃文件，刻意不納入版控（docs/results.md 之後會納入）
+docs/design.md
+docs/commits.md
