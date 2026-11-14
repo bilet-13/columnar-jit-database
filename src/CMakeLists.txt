@@ -10,6 +10,7 @@ add_library(minidb_core STATIC
   catalog/catalog.cpp
   common/schema.cpp
   execution/aggregate.cpp
+  execution/executor.cpp
   execution/hash_join.cpp
   execution/hash_table.cpp
   execution/interpreter/filter.cpp
