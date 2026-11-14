@@ -9,6 +9,8 @@
 add_library(minidb_core STATIC
   catalog/catalog.cpp
   common/schema.cpp
+  plan/expression.cpp
+  plan/logical_plan.cpp
   storage/column.cpp
   storage/table.cpp
 )
