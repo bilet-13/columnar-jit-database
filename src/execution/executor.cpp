@@ -82,7 +82,11 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
     case LogicalKind::kAggregate: {
       const auto& agg = static_cast<const LogicalAggregate&>(node);
       Operator* child = BuildNode(agg.child(), catalog, mode, kernel);
-      nodes_.push_back(std::make_unique<Aggregate>(*child, agg.agg(), agg.column()));
+      // interpreter 模式連 aggregate 也走純量，基準才是乾淨的「一次一個 row」
+      const SimdKernel agg_kernel =
+          mode == ExecMode::kInterpreter ? SimdKernel::kScalar : kernel;
+      nodes_.push_back(
+          std::make_unique<Aggregate>(*child, agg.agg(), agg.column(), agg_kernel));
       return nodes_.back().get();
     }
   }
