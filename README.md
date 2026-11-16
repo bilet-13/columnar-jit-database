@@ -9,6 +9,18 @@ interpreter, a hand-written NEON vectorized path, and a path whose WHERE clause
 is compiled to machine code at run time — so the cost of each technique can be
 measured against the same baseline.
 
+## Benchmark numbers
+
+| Query over 1M rows | Interpreter | Batch | Batch + SIMD | Speedup |
+|---|---:|---:|---:|---:|
+| `SUM(amount)` | 11.7 ms | 0.104 ms | 0.104 ms | 112x |
+| `+ WHERE amount > 100` | 23.0 ms | 1.78 ms | 0.385 ms | 60x |
+| `+ WHERE amount > 900` | 19.1 ms | 1.48 ms | 0.219 ms | 87x |
+| `+ WHERE` x3 predicates | 33.6 ms | 7.16 ms | 0.521 ms | 65x |
+| `+ JOIN` 2 more tables | 57.9 ms | 28.6 ms | 22.2 ms | 2.6x |
+
+Measured on an Apple M2 Pro with Homebrew clang 23.1.5.
+
 ## Status
 
 | Phase | Contents | State |
@@ -19,35 +31,6 @@ measured against the same baseline.
 | 3 | Optimizer (statistics, cost model, DP join search) | Not started |
 | 4 | LLVM ORC JIT codegen | Not started |
 | 5 | Benchmark write-up | Not started |
-
-## Design
-
-Three decisions shape everything else:
-
-- **Pull-based operators.** Every operator exposes a single `Next()` that the
-  layer above calls. Hash join has to drain one input completely before it can
-  probe the other, which is a plain `while` loop in this shape and a state
-  machine in the push-based alternative.
-- **One operator tree, three filters.** Scan, hash join and aggregate exist
-  once. Only the filter has three implementations, so comparing the executors
-  compares filters and nothing else.
-- **Columns are split into fixed-size chunks.** A chunk is the unit of work for
-  parallel scans and the place a zone map will keep its min/max. Chunk size is a
-  multiple of batch size, so a batch never straddles a boundary and scans hand
-  out pointers instead of copying rows.
-
-## Environment
-
-| Item | Version |
-|------|---------|
-| Machine | MacBook M1 (Apple Silicon, ARM64) |
-| Language | C++20 |
-| Compiler | Homebrew clang 23.1.5 (`brew install llvm`) |
-| Build | CMake ≥ 3.24 + Ninja |
-| Unit tests | GoogleTest v1.15.2 (fetched by CMake) |
-| Benchmarks | Google Benchmark v1.9.0 (fetched by CMake) |
-| SIMD | NEON intrinsics |
-| Codegen | LLVM ORC JIT 23.1.5 (same package as the compiler) |
 
 ## Building
 
@@ -89,26 +72,6 @@ engine, and the three executors are compared against each other.
 The dataset is generated in memory from a fixed seed, with a deliberately narrow
 value range so a sum over a million rows cannot overflow and the executors agree
 bit for bit.
-
-## Benchmark numbers
-
-One million rows, three executors, same plan. Full table and analysis in
-`docs/results.md`.
-
-| Query | Interpreter | Batched, scalar kernels | Batched, NEON kernels | Speedup |
-|-------|------------:|------------------------:|----------------------:|--------:|
-| `SUM(amount)` | 11.7 ms | 0.104 ms | 0.104 ms | 112x |
-| One predicate, 90% pass | 23.0 ms | 1.78 ms | 0.385 ms | 60x |
-| One predicate, 10% pass | 19.1 ms | 1.48 ms | 0.219 ms | 87x |
-| Three predicates | 33.6 ms | 7.16 ms | 0.521 ms | 65x |
-| Three-table join | 57.9 ms | 28.6 ms | 22.2 ms | 2.6x |
-
-Reading the columns separately is the point. The first jump is batching, which
-removes the per-row trip through the expression tree. The second is hand-written
-NEON, worth the most where there are several predicates to evaluate and least on
-a bare sum, which is already limited by memory bandwidth rather than arithmetic.
-The join query barely moves because almost all of its time is the join itself,
-which is what the optimizer in Phase 3 is for.
 
 ## Out of scope
 
