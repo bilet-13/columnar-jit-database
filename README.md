@@ -15,7 +15,7 @@ measured against the same baseline.
 |-------|----------|-------|
 | 0 | CMake skeleton, sanitizer build, GoogleTest / Google Benchmark | Done |
 | 1 | Interpreter (scan / filter / hash join / SUM) and a reference implementation | Done |
-| 2 | Vectorized execution with NEON SIMD | Not started |
+| 2 | Vectorized execution with NEON SIMD | Done |
 | 3 | Optimizer (statistics, cost model, DP join search) | Not started |
 | 4 | LLVM ORC JIT codegen | Not started |
 | 5 | Benchmark write-up | Not started |
@@ -92,7 +92,23 @@ bit for bit.
 
 ## Benchmark numbers
 
-Filled in from Phase 2 onwards.
+One million rows, three executors, same plan. Full table and analysis in
+`docs/results.md`.
+
+| Query | Interpreter | Batched, scalar kernels | Batched, NEON kernels | Speedup |
+|-------|------------:|------------------------:|----------------------:|--------:|
+| `SUM(amount)` | 11.7 ms | 0.104 ms | 0.104 ms | 112x |
+| One predicate, 90% pass | 23.0 ms | 1.78 ms | 0.385 ms | 60x |
+| One predicate, 10% pass | 19.1 ms | 1.48 ms | 0.219 ms | 87x |
+| Three predicates | 33.6 ms | 7.16 ms | 0.521 ms | 65x |
+| Three-table join | 57.9 ms | 28.6 ms | 22.2 ms | 2.6x |
+
+Reading the columns separately is the point. The first jump is batching, which
+removes the per-row trip through the expression tree. The second is hand-written
+NEON, worth the most where there are several predicates to evaluate and least on
+a bare sum, which is already limited by memory bandwidth rather than arithmetic.
+The join query barely moves because almost all of its time is the join itself,
+which is what the optimizer in Phase 3 is for.
 
 ## Out of scope
 
