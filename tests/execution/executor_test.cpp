@@ -133,13 +133,29 @@ TEST(Executor, RunScalarRejectsNonScalarPlans) {
   EXPECT_THROW(executor.RunScalar(), std::logic_error);
 }
 
-// Phase 1 只有 interpreter；另外兩種要等 Phase 2 與 Phase 4
-TEST(Executor, OtherModesAreNotImplementedYet) {
+// JIT 要等 Phase 4
+TEST(Executor, JitModeIsNotImplementedYet) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan =
       QueryBuilder(catalog).Scan("orders").Filter({Gt("amount", 1)}).Sum("amount").Build();
-  EXPECT_THROW(Executor::Build(*plan, catalog, ExecMode::kVectorized), std::logic_error);
   EXPECT_THROW(Executor::Build(*plan, catalog, ExecMode::kJit), std::logic_error);
+}
+
+// 批次執行器與 interpreter 必須給出完全一樣的答案
+TEST(Executor, VectorizedAgreesWithInterpreter) {
+  const Catalog catalog = MakeCatalog();
+  const LogicalNodePtr plan = QueryBuilder(catalog)
+                                  .Scan("orders")
+                                  .Filter({Gt("amount", 500)})
+                                  .Join("customers", "orders.cust_id", "customers.id")
+                                  .Join("cities", "customers.city_id", "cities.id")
+                                  .Filter({Gt("cities.pop", 900)})
+                                  .Sum("orders.amount")
+                                  .Build();
+
+  Executor interpreted = Executor::Build(*plan, catalog, ExecMode::kInterpreter);
+  Executor vectorized = Executor::Build(*plan, catalog, ExecMode::kVectorized);
+  EXPECT_EQ(vectorized.RunScalar(), interpreted.RunScalar());
 }
 
 // 沒有 filter 的計畫在任何 mode 下都組得起來（只有 filter 有三種實作）

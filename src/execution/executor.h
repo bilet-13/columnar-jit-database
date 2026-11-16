@@ -7,6 +7,7 @@
 #include "catalog/catalog.h"
 #include "execution/exec_mode.h"
 #include "execution/operator.h"
+#include "execution/vectorized/mask.h"
 #include "plan/logical_plan.h"
 
 namespace minidb {
@@ -24,9 +25,10 @@ namespace minidb {
 // ---------------------------------------------------------------------------
 class Executor {
  public:
-  // mode 目前只支援 kInterpreter；kVectorized 在 Phase 2、kJit 在 Phase 4
-  // 才會實作，傳進來會丟 std::logic_error。
-  static Executor Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode);
+  // kJit 要等 Phase 4，傳進來會丟 std::logic_error。
+  // kernel 只在 kVectorized 下有意義，用來比較純量批次與手寫 NEON。
+  static Executor Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode,
+                        SimdKernel kernel = SimdKernel::kScalar);
 
   Operator& root() { return *root_; }
   std::uint32_t num_output_columns() const { return num_output_columns_; }
@@ -38,7 +40,8 @@ class Executor {
   std::int64_t RunScalar();
 
  private:
-  Operator* BuildNode(const LogicalNode& node, const Catalog& catalog, ExecMode mode);
+  Operator* BuildNode(const LogicalNode& node, const Catalog& catalog, ExecMode mode,
+                      SimdKernel kernel);
 
   std::vector<std::unique_ptr<Operator>> nodes_;
   Operator* root_ = nullptr;

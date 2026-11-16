@@ -15,6 +15,8 @@ add_library(minidb_core STATIC
   execution/hash_table.cpp
   execution/interpreter/filter.cpp
   execution/seq_scan.cpp
+  execution/vectorized/filter.cpp
+  execution/vectorized/mask_scalar.cpp
   plan/expression.cpp
   plan/logical_plan.cpp
   plan/plan_builder.cpp

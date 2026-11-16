@@ -7,17 +7,33 @@
 #include "execution/hash_join.h"
 #include "execution/interpreter/filter.h"
 #include "execution/seq_scan.h"
+#include "execution/vectorized/filter.h"
 
 namespace minidb {
+namespace {
 
-Executor Executor::Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode) {
+// Vectorized 與 JIT 的 filter 不走 AST，它們需要攤平後的 (column, op,
+// constant) 清單。MVP 的 WHERE 文法保證攤得平，攤不平就是計畫組錯了。
+std::vector<Predicate> FlattenOrThrow(const Expression& predicate) {
+  std::vector<Predicate> predicates;
+  if (!TryFlatten(predicate, predicates)) {
+    throw std::logic_error("Executor: 這個條件超出 MVP 的 WHERE 文法，無法攤平");
+  }
+  return predicates;
+}
+
+}  // namespace
+
+Executor Executor::Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode,
+                         SimdKernel kernel) {
   Executor executor;
-  executor.root_ = executor.BuildNode(plan, catalog, mode);
+  executor.root_ = executor.BuildNode(plan, catalog, mode, kernel);
   executor.num_output_columns_ = plan.schema().num_columns();
   return executor;
 }
 
-Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, ExecMode mode) {
+Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, ExecMode mode,
+                              SimdKernel kernel) {
   const std::uint32_t batch_size = BatchSizeFor(mode);
 
   switch (node.kind()) {
@@ -30,13 +46,15 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
 
     case LogicalKind::kFilter: {
       const auto& filter = static_cast<const LogicalFilter&>(node);
-      Operator* child = BuildNode(filter.child(), catalog, mode);
+      Operator* child = BuildNode(filter.child(), catalog, mode, kernel);
       switch (mode) {
         case ExecMode::kInterpreter:
           nodes_.push_back(std::make_unique<InterpreterFilter>(*child, filter.predicate()));
           return nodes_.back().get();
         case ExecMode::kVectorized:
-          throw std::logic_error("Executor: vectorized filter 要等 Phase 2");
+          nodes_.push_back(std::make_unique<VectorizedFilter>(
+              *child, FlattenOrThrow(*filter.predicate()), kernel));
+          return nodes_.back().get();
         case ExecMode::kJit:
           throw std::logic_error("Executor: JIT filter 要等 Phase 4");
       }
@@ -47,8 +65,8 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
       const auto& join = static_cast<const LogicalJoin&>(node);
       // 左邊當 probe、右邊當 build。Phase 3 的 optimizer 會改成依估計的
       // 列數挑較小的那邊當 build。
-      Operator* probe = BuildNode(join.left(), catalog, mode);
-      Operator* build = BuildNode(join.right(), catalog, mode);
+      Operator* probe = BuildNode(join.left(), catalog, mode, kernel);
+      Operator* build = BuildNode(join.right(), catalog, mode, kernel);
 
       HashJoinSpec spec;
       spec.probe_key = join.left_key();
@@ -63,7 +81,7 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
 
     case LogicalKind::kAggregate: {
       const auto& agg = static_cast<const LogicalAggregate&>(node);
-      Operator* child = BuildNode(agg.child(), catalog, mode);
+      Operator* child = BuildNode(agg.child(), catalog, mode, kernel);
       nodes_.push_back(std::make_unique<Aggregate>(*child, agg.agg(), agg.column()));
       return nodes_.back().get();
     }

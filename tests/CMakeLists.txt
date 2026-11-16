@@ -15,6 +15,7 @@ add_executable(minidb_tests
   execution/hash_join_test.cpp
   execution/hash_table_test.cpp
   execution/scan_test.cpp
+  execution/vectorized_filter_test.cpp
   plan/expression_test.cpp
   plan/logical_plan_test.cpp
   plan/plan_builder_test.cpp
