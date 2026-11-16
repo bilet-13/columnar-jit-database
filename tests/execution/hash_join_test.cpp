@@ -42,24 +42,61 @@ std::vector<Row> Drain(Operator& op) {
 }
 
 // orders(id, cust_id)  ⋈  customers(id, city_id)
-HashJoinSpec OrdersJoinCustomers(std::uint32_t batch_size = kBatchSize) {
-  return HashJoinSpec{/*probe_key=*/1, /*build_key=*/0, /*probe_num_cols=*/2,
-                      /*build_num_cols=*/2, batch_size};
+HashJoinSpec OrdersJoinCustomers(std::uint32_t batch_size = kBatchSize,
+                                 bool batched_probe = false) {
+  return HashJoinSpec{/*probe_key=*/1,        /*build_key=*/0, /*probe_num_cols=*/2,
+                      /*build_num_cols=*/2,   batch_size,      batched_probe};
+}
+
+// 一次一個 row 與批次預取兩條路徑必須給出一樣的結果
+const std::vector<bool>& ProbeModes() {
+  static const std::vector<bool> modes = {false, true};
+  return modes;
 }
 
 TEST(HashJoin, OneToOne) {
   const Table orders = MakeTable("orders", {"id", "cust_id"}, {{1, 10}, {2, 20}, {3, 10}});
   const Table customers = MakeTable("customers", {"id", "city_id"}, {{10, 7}, {20, 8}});
 
+  for (const bool batched : ProbeModes()) {
+    SeqScan probe(orders, kBatchSize);
+    SeqScan build(customers, kBatchSize);
+    HashJoin join(probe, build, OrdersJoinCustomers(kBatchSize, batched));
+
+    // 輸出欄位 = 左邊兩欄接右邊兩欄
+    const std::vector<Row> expected = {{1, 10, 10, 7}, {2, 20, 20, 8}, {3, 10, 10, 7}};
+    EXPECT_EQ(Drain(join), expected) << "batched_probe = " << batched;
+    EXPECT_EQ(join.build_rows(), 2u);
+    EXPECT_EQ(join.rows_out(), 3u);
+  }
+}
+
+// 批次 probe 的兩輪迴圈要處理滿一個 batch 以上的資料
+TEST(HashJoin, BatchedProbeAgreesOnALargerInput) {
+  std::vector<Row> order_rows;
+  for (std::int64_t i = 0; i < kBatchSize * 2 + 377; ++i) {
+    order_rows.push_back({i, i % 500});
+  }
+  std::vector<Row> customer_rows;
+  for (std::int64_t i = 0; i < 500; ++i) {
+    customer_rows.push_back({i, i * 3});
+  }
+  const Table orders = MakeTable("orders", {"id", "cust_id"}, order_rows);
+  const Table customers = MakeTable("customers", {"id", "city_id"}, customer_rows);
+
+  std::vector<Row> row_at_a_time;
+  {
+    SeqScan probe(orders, kBatchSize);
+    SeqScan build(customers, kBatchSize);
+    HashJoin join(probe, build, OrdersJoinCustomers(kBatchSize, false));
+    row_at_a_time = Drain(join);
+  }
+  ASSERT_EQ(row_at_a_time.size(), order_rows.size());
+
   SeqScan probe(orders, kBatchSize);
   SeqScan build(customers, kBatchSize);
-  HashJoin join(probe, build, OrdersJoinCustomers());
-
-  // 輸出欄位 = 左邊兩欄接右邊兩欄
-  const std::vector<Row> expected = {{1, 10, 10, 7}, {2, 20, 20, 8}, {3, 10, 10, 7}};
-  EXPECT_EQ(Drain(join), expected);
-  EXPECT_EQ(join.build_rows(), 2u);
-  EXPECT_EQ(join.rows_out(), 3u);
+  HashJoin join(probe, build, OrdersJoinCustomers(kBatchSize, true));
+  EXPECT_EQ(Drain(join), row_at_a_time);
 }
 
 TEST(HashJoin, RowsWithoutAMatchAreDropped) {
@@ -166,14 +203,16 @@ TEST(HashJoin, RespectsASelectionVectorOnTheProbeSide) {
       MakeTable("orders", {"id", "cust_id"}, {{1, 10}, {2, 10}, {3, 10}, {4, 10}});
   const Table customers = MakeTable("customers", {"id", "city_id"}, {{10, 7}});
 
-  SeqScan scan(orders, kBatchSize);
-  // 只留 id > 2
-  InterpreterFilter filter(scan, MakeColumnCompare(0, CompareOp::kGt, 2));
-  SeqScan build(customers, kBatchSize);
-  HashJoin join(filter, build, OrdersJoinCustomers());
+  for (const bool batched : ProbeModes()) {
+    SeqScan scan(orders, kBatchSize);
+    // 只留 id > 2
+    InterpreterFilter filter(scan, MakeColumnCompare(0, CompareOp::kGt, 2));
+    SeqScan build(customers, kBatchSize);
+    HashJoin join(filter, build, OrdersJoinCustomers(kBatchSize, batched));
 
-  const std::vector<Row> expected = {{3, 10, 10, 7}, {4, 10, 10, 7}};
-  EXPECT_EQ(Drain(join), expected);
+    const std::vector<Row> expected = {{3, 10, 10, 7}, {4, 10, 10, 7}};
+    EXPECT_EQ(Drain(join), expected) << "batched_probe = " << batched;
+  }
 }
 
 // build 端的值一定要複製出來；下層的 batch 指標會失效

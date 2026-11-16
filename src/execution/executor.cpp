@@ -74,6 +74,8 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
       spec.probe_num_cols = join.left().schema().num_columns();
       spec.build_num_cols = join.right().schema().num_columns();
       spec.batch_size = batch_size;
+      // batch 只有一個 row 時，兩輪預取沒有東西可以重疊
+      spec.batched_probe = mode != ExecMode::kInterpreter;
 
       nodes_.push_back(std::make_unique<HashJoin>(*probe, *build, spec));
       return nodes_.back().get();

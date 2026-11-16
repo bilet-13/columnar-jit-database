@@ -16,6 +16,10 @@ struct HashJoinSpec {
   std::uint32_t probe_num_cols = 0;  // probe 端有幾欄
   std::uint32_t build_num_cols = 0;  // build 端有幾欄
   std::uint32_t batch_size = kBatchSize;
+
+  // true 時 probe 分兩輪：先把一整批的探測起點都算出來並預取，再回頭查表。
+  // 見 hash_join.cpp 的說明。interpreter 模式用不到（batch 只有一個 row）。
+  bool batched_probe = false;
 };
 
 // ---------------------------------------------------------------------------
@@ -46,6 +50,9 @@ class HashJoin final : public Operator {
  private:
   void BuildSide();
   void ProbeOneBatch(const Batch& in);
+  void ProbeRowAtATime(const Batch& in);
+  void ProbeBatched(const Batch& in);
+  void EmitMatch(const Batch& in, std::uint32_t offset, std::uint32_t build_row);
 
   Operator* probe_child_;
   Operator* build_child_;
@@ -61,6 +68,9 @@ class HashJoin final : public Operator {
   std::uint64_t out_rows_ = 0;
   std::uint64_t out_pos_ = 0;
   Batch out_;
+
+  std::vector<std::uint64_t> probe_slots_;  // 批次 probe 的探測起點
+  std::vector<std::int64_t> probe_keys_;
 };
 
 }  // namespace minidb

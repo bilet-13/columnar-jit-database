@@ -1,6 +1,7 @@
 #include "execution/hash_table.h"
 
 #include <stdexcept>
+#include <utility>
 
 namespace minidb {
 namespace {
@@ -20,9 +21,8 @@ std::uint64_t RoundUpToPowerOfTwo(std::uint64_t value) {
 }  // namespace
 
 void HashTable::Reserve(std::uint64_t expected_entries) {
-  const std::uint64_t wanted =
-      RoundUpToPowerOfTwo(static_cast<std::uint64_t>(
-          static_cast<double>(expected_entries) / kMaxLoadFactor) + 1);
+  const std::uint64_t wanted = RoundUpToPowerOfTwo(
+      static_cast<std::uint64_t>(static_cast<double>(expected_entries) / kMaxLoadFactor) + 1);
   if (wanted > capacity()) {
     Rehash(wanted);
   }
@@ -32,17 +32,16 @@ void HashTable::Insert(std::int64_t key, std::uint32_t row) {
   if (row == kEmpty) {
     throw std::invalid_argument("HashTable::Insert: 列號不可等於空值標記");
   }
-  if (rows_.empty() ||
+  if (entries_.empty() ||
       static_cast<double>(num_entries_ + 1) > static_cast<double>(capacity()) * kMaxLoadFactor) {
-    Rehash(rows_.empty() ? 16 : capacity() * 2);
+    Rehash(entries_.empty() ? 16 : capacity() * 2);
   }
 
-  std::uint64_t slot = Hash(key) & mask_;
-  while (rows_[slot] != kEmpty) {
+  std::uint64_t slot = SlotFor(key);
+  while (entries_[slot].row != kEmpty) {
     slot = (slot + 1) & mask_;  // 重複的 key 也會佔用新的 slot
   }
-  keys_[slot] = key;
-  rows_[slot] = row;
+  entries_[slot] = Entry{key, row};
   ++num_entries_;
 }
 
@@ -59,24 +58,21 @@ std::uint32_t HashTable::CountMatches(std::int64_t key) const {
 }
 
 void HashTable::Rehash(std::uint64_t new_capacity) {
-  std::vector<std::int64_t> old_keys = std::move(keys_);
-  std::vector<std::uint32_t> old_rows = std::move(rows_);
+  std::vector<Entry> old_entries = std::move(entries_);
 
-  keys_.assign(new_capacity, 0);
-  rows_.assign(new_capacity, kEmpty);
+  entries_.assign(new_capacity, Entry{});
   mask_ = new_capacity - 1;
   num_entries_ = 0;
 
-  for (std::size_t i = 0; i < old_rows.size(); ++i) {
-    if (old_rows[i] == kEmpty) {
+  for (const Entry& entry : old_entries) {
+    if (entry.row == kEmpty) {
       continue;
     }
-    std::uint64_t slot = Hash(old_keys[i]) & mask_;
-    while (rows_[slot] != kEmpty) {
+    std::uint64_t slot = SlotFor(entry.key);
+    while (entries_[slot].row != kEmpty) {
       slot = (slot + 1) & mask_;
     }
-    keys_[slot] = old_keys[i];
-    rows_[slot] = old_rows[i];
+    entries_[slot] = entry;
     ++num_entries_;
   }
 }
