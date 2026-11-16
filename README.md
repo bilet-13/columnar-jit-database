@@ -11,7 +11,7 @@ measured against the same baseline.
 
 ## Benchmark numbers
 
-| Query over 1M rows | Interpreter | Batch | Batch + SIMD | Speedup |
+| Query over 1M rows | Interpreter | Batch | Batch + SIMD | Batch + SIMD vs Interpreter |
 |---|---:|---:|---:|---:|
 | `SUM(amount)` | 11.7 ms | 0.104 ms | 0.104 ms | 112x |
 | `+ WHERE amount > 100` | 23.0 ms | 1.78 ms | 0.385 ms | 60x |
