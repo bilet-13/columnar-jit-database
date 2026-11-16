@@ -28,7 +28,7 @@ class Executor {
   // kJit 要等 Phase 4，傳進來會丟 std::logic_error。
   // kernel 只在 kVectorized 下有意義，用來比較純量批次與手寫 NEON。
   static Executor Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode,
-                        SimdKernel kernel = SimdKernel::kScalar);
+                        SimdKernel kernel = SimdKernel::kNeon);
 
   Operator& root() { return *root_; }
   std::uint32_t num_output_columns() const { return num_output_columns_; }

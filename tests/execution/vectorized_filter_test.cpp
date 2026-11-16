@@ -19,7 +19,7 @@ constexpr ColumnIndex kAmount = 1;
 
 // 所有 kernel 實作都要通過同一組測試
 const std::vector<SimdKernel>& AllKernels() {
-  static const std::vector<SimdKernel> kernels = {SimdKernel::kScalar};
+  static const std::vector<SimdKernel> kernels = {SimdKernel::kScalar, SimdKernel::kNeon};
   return kernels;
 }
 
@@ -47,6 +47,15 @@ std::vector<std::int64_t> DrainAmounts(Operator& op) {
 // ---------------------------------------------------------------------------
 // Kernel：mask 的位元排列
 // ---------------------------------------------------------------------------
+
+// 確認手寫 NEON 版真的被編進來了，而不是靜靜地退回純量版
+TEST(MaskKernel, NeonKernelsAreCompiledIn) {
+#if defined(__ARM_NEON)
+  SUCCEED();
+#else
+  GTEST_SKIP() << "這台機器沒有 NEON，SimdKernel::kNeon 會退回純量版";
+#endif
+}
 
 TEST(MaskKernel, MaskBytesRoundsUp) {
   EXPECT_EQ(MaskBytes(0), 0u);

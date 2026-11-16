@@ -61,4 +61,15 @@ void SelectionToMask(const std::uint16_t* sel, std::uint32_t sel_n, std::uint32_
 
 }  // namespace scalar
 
+namespace neon {
+
+// 手寫 NEON 版。selection_to_mask 是 scatter，NEON 沒有對應指令，所以那一格
+// 由 scalar 版擔任（見 mask.cpp）。
+void ComputeMask(const Predicate& predicate, const std::int64_t* column, std::uint32_t n,
+                 std::uint8_t* mask);
+void AndMask(std::uint8_t* acc, const std::uint8_t* other, std::uint32_t bytes);
+std::uint32_t MaskToSelection(const std::uint8_t* mask, std::uint32_t n, std::uint16_t* out);
+
+}  // namespace neon
+
 }  // namespace minidb

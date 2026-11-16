@@ -16,6 +16,8 @@ add_library(minidb_core STATIC
   execution/interpreter/filter.cpp
   execution/seq_scan.cpp
   execution/vectorized/filter.cpp
+  execution/vectorized/mask.cpp
+  execution/vectorized/mask_neon.cpp
   execution/vectorized/mask_scalar.cpp
   plan/expression.cpp
   plan/logical_plan.cpp
