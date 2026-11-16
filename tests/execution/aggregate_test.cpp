@@ -24,10 +24,6 @@ Table MakeOrders(const std::vector<std::int64_t>& amounts) {
   return table;
 }
 
-// ---------------------------------------------------------------------------
-// Kernel
-// ---------------------------------------------------------------------------
-
 const std::vector<SimdKernel>& AllKernels() {
   static const std::vector<SimdKernel> kernels = {SimdKernel::kScalar, SimdKernel::kNeon};
   return kernels;
@@ -50,8 +46,6 @@ TEST(SumKernel, SumSel) {
   }
 }
 
-// 累加器用 unsigned，所以溢位是定義好的 wrap，UBSan 不會中止。
-// 加法可交換，所以四個獨立累加器的 NEON 版跟逐個相加的純量版結果一致。
 TEST(SumKernel, OverflowWrapsInsteadOfTrapping) {
   const std::vector<std::int64_t> data = {INT64_MAX, INT64_MAX};
   for (const SimdKernel kernel : AllKernels()) {
@@ -60,7 +54,6 @@ TEST(SumKernel, OverflowWrapsInsteadOfTrapping) {
   }
 }
 
-// NEON 版一次吃 8 個，所以每個不是 8 的倍數的長度都要跟純量版對得上
 TEST(SumKernel, NeonAgreesWithScalarAtEveryLength) {
   std::mt19937_64 rng(11);
   std::vector<std::int64_t> data(300);
@@ -72,15 +65,10 @@ TEST(SumKernel, NeonAgreesWithScalarAtEveryLength) {
   }
 }
 
-// 即使溢位，兩個版本的分組方式不同也必須得到同一個答案
 TEST(SumKernel, NeonAgreesWithScalarOnOverflow) {
   std::vector<std::int64_t> data(37, INT64_MAX / 3);
   EXPECT_EQ(neon::SumAll(data.data(), data.size()), scalar::SumAll(data.data(), data.size()));
 }
-
-// ---------------------------------------------------------------------------
-// Operator
-// ---------------------------------------------------------------------------
 
 TEST(Aggregate, SumOverWholeTable) {
   const Table table = MakeOrders({250, 80, 300, 42, 900});
@@ -93,11 +81,9 @@ TEST(Aggregate, SumOverWholeTable) {
   EXPECT_EQ(batch->n, 1u);
   EXPECT_EQ(batch->Value(0, 0), 1572);
   EXPECT_EQ(sum.result(), 1572);
-  // 聚合只輸出一列
   EXPECT_EQ(sum.Next(), nullptr);
 }
 
-// filter 之後走的是 SumSel 這條路
 TEST(Aggregate, SumRespectsSelectionVector) {
   const Table table = MakeOrders({250, 80, 300, 42, 900});
   SeqScan scan(table, kBatchSize);
@@ -105,7 +91,7 @@ TEST(Aggregate, SumRespectsSelectionVector) {
   Aggregate sum(filter, AggKind::kSum, kAmount, SimdKernel::kNeon);
 
   ASSERT_NE(sum.Next(), nullptr);
-  EXPECT_EQ(sum.result(), 1450);  // 250 + 300 + 900
+  EXPECT_EQ(sum.result(), 1450);
 }
 
 TEST(Aggregate, SumAcrossManyBatches) {
@@ -137,7 +123,6 @@ TEST(Aggregate, CountRespectsSelectionVector) {
   EXPECT_EQ(count.result(), 3);
 }
 
-// 空輸入仍然要輸出一列（SUM 回 0、COUNT 回 0），不是回 nullptr
 TEST(Aggregate, EmptyInputStillProducesOneRow) {
   const Table table = MakeOrders({});
   SeqScan scan(table, kBatchSize);
@@ -159,5 +144,5 @@ TEST(Aggregate, EverythingFilteredOutGivesZero) {
   EXPECT_EQ(sum.result(), 0);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

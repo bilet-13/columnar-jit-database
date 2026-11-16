@@ -13,7 +13,6 @@
 namespace minidb {
 namespace {
 
-// id = i，amount = i * 10
 Table MakeOrders(std::uint64_t num_rows) {
   Table table("orders", Schema({"id", "amount"}));
   table.Reserve(num_rows);
@@ -63,12 +62,10 @@ TEST(SeqScan, ReadsEveryRowInOrder) {
     ASSERT_EQ(drained.ids[i], static_cast<std::int64_t>(i));
     ASSERT_EQ(drained.amounts[i], static_cast<std::int64_t>(i) * 10);
   }
-  // 2500 = 1024 + 1024 + 452
   EXPECT_EQ(drained.num_batches, 3u);
   EXPECT_EQ(drained.max_batch_rows, kBatchSize);
 }
 
-// Interpreter 模式：一次一列
 TEST(SeqScan, SingleRowBatches) {
   const Table table = MakeOrders(7);
   SeqScan scan(table, BatchSizeFor(ExecMode::kInterpreter));
@@ -79,8 +76,6 @@ TEST(SeqScan, SingleRowBatches) {
   EXPECT_EQ(drained.max_batch_rows, 1u);
 }
 
-// 跨 chunk 邊界：batch 不會橫跨兩個 chunk，所以 scan 交出的指標都在單一
-// chunk 內，不需要複製任何資料。
 TEST(SeqScan, CrossesChunkBoundaryWithoutLosingRows) {
   const std::uint64_t num_rows = kChunkSize + kBatchSize + 13;
   const Table table = MakeOrders(num_rows);
@@ -101,7 +96,6 @@ TEST(SeqScan, ScanIsZeroCopy) {
   SeqScan scan(table, kBatchSize);
   Batch* batch = scan.Next();
   ASSERT_NE(batch, nullptr);
-  // 輸出的指標就是 columnstore 的記憶體，不是副本
   EXPECT_EQ(batch->cols[0], table.column(0).chunk_data(0));
   EXPECT_EQ(batch->cols[1], table.column(1).chunk_data(0));
   EXPECT_EQ(batch->sel, nullptr);
@@ -115,5 +109,5 @@ TEST(SeqScan, RejectsBadArguments) {
   EXPECT_THROW(SeqScan(no_columns, kBatchSize), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

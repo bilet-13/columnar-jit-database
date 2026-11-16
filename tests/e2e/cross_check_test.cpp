@@ -36,10 +36,6 @@ void ExpectAllVariantsAgree(const Dataset& dataset, QueryId id) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Phase 2 的完成標準：批次執行器與 interpreter 的結果完全一致。
-// 值域刻意縮小過，所以是精確比對，不是容許誤差。
-// ---------------------------------------------------------------------------
 TEST(CrossCheck, EveryExecutorAgreesOnQ1ToQ5) {
   const Dataset dataset = MakeDataset(testutil::SmallSizes());
   for (const QueryId id : kAllQueries) {
@@ -47,7 +43,6 @@ TEST(CrossCheck, EveryExecutorAgreesOnQ1ToQ5) {
   }
 }
 
-// 跨 chunk 邊界、而且每種執行器都要處理好幾個 batch
 TEST(CrossCheck, EveryExecutorAgreesAcrossChunks) {
   DatasetSizes sizes = testutil::SmallSizes();
   sizes.num_orders = kChunkSize + 1000;
@@ -57,8 +52,6 @@ TEST(CrossCheck, EveryExecutorAgreesAcrossChunks) {
   }
 }
 
-// row 數剛好落在 batch 邊界上最容易出事：NEON kernel 一次吃 8 個，
-// mask 一個 byte 管 8 個 row，batch 是 1024 個 row。
 TEST(CrossCheck, EveryExecutorAgreesAtAwkwardRowCounts) {
   for (const std::uint64_t num_orders : {std::uint64_t{1}, std::uint64_t{7}, std::uint64_t{8},
                                          std::uint64_t{9}, std::uint64_t{kBatchSize - 1},
@@ -74,7 +67,6 @@ TEST(CrossCheck, EveryExecutorAgreesAtAwkwardRowCounts) {
   }
 }
 
-// 每種執行器都該出現在清單裡，別因為改錯 AllVariants() 而默默少跑一種
 TEST(CrossCheck, VariantListCoversEveryMode) {
   bool has_interpreter = false;
   bool has_vectorized_scalar = false;
@@ -95,5 +87,5 @@ TEST(CrossCheck, VariantListCoversEveryMode) {
   EXPECT_TRUE(has_vectorized_neon);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

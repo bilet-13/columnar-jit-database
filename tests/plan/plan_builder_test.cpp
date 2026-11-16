@@ -7,7 +7,6 @@
 namespace minidb {
 namespace {
 
-// docs/design.md 8.1 的 3 表 chain schema
 Catalog MakeCatalog() {
   Catalog catalog;
   catalog.CreateTable("cities", Schema({"id", "pop"}));
@@ -42,7 +41,6 @@ TEST(QueryBuilder, MultiplePredicatesBecomeOneAnd) {
             "  Scan(orders)\n");
 }
 
-// Q1：沒有 filter 的純聚合
 TEST(QueryBuilder, Q1SumOverWholeTable) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog).Scan("orders").Sum("amount").Build();
@@ -59,7 +57,6 @@ TEST(QueryBuilder, Count) {
   EXPECT_EQ(plan->schema().column_name(0), "count(*)");
 }
 
-// Q5：3 表 chain join，就是 optimizer 之後要改良的「使用者順序」
 TEST(QueryBuilder, Q5ThreeTableChainJoin) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog)
@@ -91,14 +88,9 @@ TEST(QueryBuilder, JoinedSchemaKeepsBothTables) {
   ASSERT_EQ(plan->schema().num_columns(), 6u);
   EXPECT_EQ(plan->schema().column_name(0), "orders.id");
   EXPECT_EQ(plan->schema().column_name(3), "customers.id");
-  // join 之後 id 有歧義，必須寫完整名稱
   EXPECT_THROW(plan->schema().ResolveColumnIndex("id"), std::invalid_argument);
   EXPECT_EQ(plan->schema().ResolveColumnIndex("orders.id"), 0u);
 }
-
-// ---------------------------------------------------------------------------
-// 錯誤用法在組計畫時就該被擋下來，不要等到執行
-// ---------------------------------------------------------------------------
 
 TEST(QueryBuilder, UnknownTableThrows) {
   const Catalog catalog = MakeCatalog();
@@ -138,5 +130,5 @@ TEST(QueryBuilder, BuildWithoutScanThrows) {
   EXPECT_THROW(QueryBuilder(catalog).Build(), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

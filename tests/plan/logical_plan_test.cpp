@@ -38,10 +38,9 @@ TEST(LogicalPlan, FilterRejectsNull) {
   EXPECT_THROW(LogicalFilter(OrdersScan(), nullptr), std::invalid_argument);
 }
 
-// join 的輸出 schema 是左邊的欄位接右邊的欄位
 TEST(LogicalPlan, JoinConcatenatesSchemas) {
   const auto join = std::make_shared<const LogicalJoin>(OrdersScan(), CustomersScan(),
-                                                        /*left_key=*/1, /*right_key=*/0);
+                                                        1, 0);
   ASSERT_EQ(join->schema().num_columns(), 5u);
   EXPECT_EQ(join->schema().column_name(0), "orders.id");
   EXPECT_EQ(join->schema().column_name(3), "customers.id");
@@ -66,7 +65,6 @@ TEST(LogicalPlan, AggregateRejectsOutOfRangeColumn) {
   EXPECT_THROW(LogicalAggregate(OrdersScan(), AggKind::kSum, 9), std::invalid_argument);
 }
 
-// 三表 chain join 的計畫樹，就是 Q5 的形狀
 TEST(LogicalPlan, ToStringPrintsTheTree) {
   const auto cities =
       std::make_shared<const LogicalScan>("cities", Schema({"cities.id", "cities.pop"}));
@@ -87,5 +85,5 @@ TEST(LogicalPlan, ToStringPrintsTheTree) {
   EXPECT_EQ(ToString(*sum), expected);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

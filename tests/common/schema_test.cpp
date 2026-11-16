@@ -43,7 +43,6 @@ TEST(Schema, EmptyNameRejected) {
 TEST(Schema, TryGetColumnIndexNeedsExactName) {
   const Schema schema = MakeOrdersSchema();
   EXPECT_EQ(schema.TryGetColumnIndex("orders.amount"), 2u);
-  // 寬鬆查找是 ResolveColumnIndex 的工作，TryGetColumnIndex 只認完整名稱
   EXPECT_FALSE(schema.TryGetColumnIndex("amount").has_value());
 }
 
@@ -55,13 +54,10 @@ TEST(Schema, ResolveAcceptsQualifiedAndUnqualified) {
 }
 
 TEST(Schema, ResolveRejectsAmbiguousName) {
-  // join 之後的典型情況：兩張表都有 id
   const Schema joined = Schema::Concat(Schema({"orders.id"}), Schema({"customers.id"}));
   ASSERT_EQ(joined.num_columns(), 2u);
-  // 寫完整名稱沒問題
   EXPECT_EQ(joined.ResolveColumnIndex("orders.id"), 0u);
   EXPECT_EQ(joined.ResolveColumnIndex("customers.id"), 1u);
-  // 只寫 id 就有歧義
   EXPECT_THROW(joined.ResolveColumnIndex("id"), std::invalid_argument);
 }
 
@@ -80,7 +76,6 @@ TEST(Schema, ConcatKeepsLeftThenRight) {
 }
 
 TEST(Schema, ConcatRejectsCollidingNames) {
-  // 沒有加表名前綴就 join，會撞名
   EXPECT_THROW(Schema::Concat(Schema({"id"}), Schema({"id"})), std::invalid_argument);
 }
 
@@ -95,5 +90,5 @@ TEST(Schema, Equality) {
   EXPECT_NE(MakeOrdersSchema(), Schema({"orders.id"}));
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

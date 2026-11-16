@@ -1,17 +1,3 @@
-// NEON 版的 mask kernel（docs/design.md 7.2）。
-//
-// 這個檔案是 Phase 2 的技術核心。一次處理 8 個 int64：
-//
-//   1. 四次 vcgtq_s64 之類的比較，每次得到 2 個 lane 的遮罩
-//      （通過是全 1、不通過是全 0）
-//   2. 把四個 128-bit 遮罩逐步窄化成一個 uint16x8_t
-//   3. 跟 {1,2,4,...,128} 相 AND 再做水平加總，得到一個 byte 的 bit mask
-//
-// 第 3 步是整段最關鍵的地方。x86 的 AVX-512 有 compress 指令可以直接把遮罩
-// 變成索引，ARM NEON 沒有，所以 mask → selection vector 要靠一張 256 entry
-// 的查表：一個 byte 的 mask 對應到最多 8 個索引。查完無條件寫 8 個 uint16，
-// 再依實際通過的數量前進指標 —— 多寫的那幾個會被下一次覆蓋掉，所以不需要
-// 任何分支。這也是輸出緩衝區要多留 kSelectionSlack 的原因。
 
 #include <array>
 #include <cstdint>
@@ -30,7 +16,6 @@ namespace neon {
 
 namespace {
 
-// mask 的一個 byte → 通過的 lane 索引，以及通過幾個。
 struct IndexTable {
   std::array<std::array<std::uint8_t, 8>, 256> indices{};
   std::array<std::uint8_t, 256> counts{};
@@ -58,8 +43,6 @@ inline uint64x2_t CompareLanes(int64x2_t values, int64x2_t constant) {
   if constexpr (kOp == CompareOp::kEq) {
     return vceqq_s64(values, constant);
   } else if constexpr (kOp == CompareOp::kNe) {
-    // NEON 沒有 64-bit 的 vmvnq，所以先當成 32-bit 再反轉；
-    // 反正遮罩只有全 0 與全 1 兩種樣子，怎麼切都一樣。
     return vreinterpretq_u64_u32(vmvnq_u32(vreinterpretq_u32_u64(vceqq_s64(values, constant))));
   } else if constexpr (kOp == CompareOp::kLt) {
     return vcltq_s64(values, constant);
@@ -86,16 +69,13 @@ void ComputeMaskImpl(const std::int64_t* column, std::uint32_t n, std::int64_t c
     const uint64x2_t m2 = CompareLanes<kOp>(vld1q_s64(column + i + 4), broadcast);
     const uint64x2_t m3 = CompareLanes<kOp>(vld1q_s64(column + i + 6), broadcast);
 
-    // 64 位元 → 32 位元 → 16 位元，八個 lane 擠進一個暫存器
     const uint32x4_t low = vcombine_u32(vmovn_u64(m0), vmovn_u64(m1));
     const uint32x4_t high = vcombine_u32(vmovn_u64(m2), vmovn_u64(m3));
     const uint16x8_t lanes = vcombine_u16(vmovn_u32(low), vmovn_u32(high));
 
-    // 每個通過的 lane 貢獻自己的位元權重，水平加總就是那個 byte
     mask[i >> 3] = static_cast<std::uint8_t>(vaddvq_u16(vandq_u16(lanes, weights)));
   }
 
-  // 尾巴（不滿 8 個）走純量，並且把整個 byte 先清掉
   if (i < n) {
     std::uint8_t tail = 0;
     for (std::uint32_t row = i; row < n; ++row) {
@@ -120,7 +100,7 @@ struct ComputeMaskDispatch {
   }
 };
 
-}  // namespace
+}
 
 void ComputeMask(const Predicate& predicate, const std::int64_t* column, std::uint32_t n,
                  std::uint8_t* mask) {
@@ -147,7 +127,6 @@ std::uint32_t MaskToSelection(const std::uint8_t* mask, std::uint32_t n, std::ui
     const uint8x8_t packed = vld1_u8(kIndexTable.indices[bits].data());
     const uint16x8_t indices =
         vaddq_u16(vmovl_u8(packed), vdupq_n_u16(static_cast<std::uint16_t>(byte * 8)));
-    // 無條件寫 8 個，多寫的會被下一輪蓋掉 —— 沒有任何分支
     vst1q_u16(out + written, indices);
     written += kIndexTable.counts[bits];
   }
@@ -161,7 +140,7 @@ std::uint32_t MaskToSelection(const std::uint8_t* mask, std::uint32_t n, std::ui
   return written;
 }
 
-#else  // 不是 ARM：退回純量版，這個專案只在 M1 上開發
+#else
 
 void ComputeMask(const Predicate& predicate, const std::int64_t* column, std::uint32_t n,
                  std::uint8_t* mask) {
@@ -178,5 +157,5 @@ std::uint32_t MaskToSelection(const std::uint8_t* mask, std::uint32_t n, std::ui
 
 #endif
 
-}  // namespace neon
-}  // namespace minidb
+}
+}

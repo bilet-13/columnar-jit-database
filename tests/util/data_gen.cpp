@@ -5,10 +5,7 @@
 namespace minidb::testutil {
 
 DatasetSizes SmallSizes() {
-  // 只縮小 orders 與 customers；城市數維持設計值 200。
-  // 城市太少時「pop > 900」可能一個都沒中，Q5 就會配對到 0 列，測試變成
-  // 空跑（引擎與參考實作都回 0，看起來是過的）。
-  return DatasetSizes{/*num_orders=*/5'000, /*num_customers=*/500, /*num_cities=*/200};
+  return DatasetSizes{5'000, 500, 200};
 }
 
 Dataset MakeDataset(const DatasetSizes& sizes, std::uint64_t seed) {
@@ -20,7 +17,6 @@ Dataset MakeDataset(const DatasetSizes& sizes, std::uint64_t seed) {
     return std::uniform_int_distribution<std::int64_t>(lo, hi - 1)(rng);
   };
 
-  // --- cities ---
   Table& cities = dataset.catalog.CreateTable("cities", Schema({"id", "pop"}));
   cities.Reserve(sizes.num_cities);
   for (std::uint64_t i = 0; i < sizes.num_cities; ++i) {
@@ -32,7 +28,6 @@ Dataset MakeDataset(const DatasetSizes& sizes, std::uint64_t seed) {
     dataset.city_pop.push_back(pop);
   }
 
-  // --- customers ---
   Table& customers = dataset.catalog.CreateTable("customers", Schema({"id", "city_id", "age"}));
   customers.Reserve(sizes.num_customers);
   for (std::uint64_t i = 0; i < sizes.num_customers; ++i) {
@@ -46,7 +41,6 @@ Dataset MakeDataset(const DatasetSizes& sizes, std::uint64_t seed) {
     dataset.customer_age.push_back(age);
   }
 
-  // --- orders ---
   Table& orders = dataset.catalog.CreateTable("orders", Schema({"id", "cust_id", "amount"}));
   orders.Reserve(sizes.num_orders);
   for (std::uint64_t i = 0; i < sizes.num_orders; ++i) {
@@ -63,4 +57,4 @@ Dataset MakeDataset(const DatasetSizes& sizes, std::uint64_t seed) {
   return dataset;
 }
 
-}  // namespace minidb::testutil
+}

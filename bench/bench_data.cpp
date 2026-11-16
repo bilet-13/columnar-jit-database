@@ -3,7 +3,6 @@
 namespace minidb::bench {
 
 const testutil::Dataset& FullDataset() {
-  // docs/design.md 8.1 的預設尺寸：orders 100 萬、customers 2 萬、cities 200
   static const testutil::Dataset dataset = testutil::MakeDataset(testutil::DatasetSizes{});
   return dataset;
 }
@@ -17,4 +16,4 @@ const std::vector<BenchVariant>& Variants() {
   return variants;
 }
 
-}  // namespace minidb::bench
+}

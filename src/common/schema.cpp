@@ -7,13 +7,12 @@
 namespace minidb {
 namespace {
 
-// 回傳最後一個點號之後的部分；沒有點號就回整個名稱。
 std::string_view UnqualifiedName(std::string_view name) {
   const std::size_t dot = name.rfind('.');
   return dot == std::string_view::npos ? name : name.substr(dot + 1);
 }
 
-}  // namespace
+}
 
 Schema::Schema(std::vector<std::string> column_names) : names_(std::move(column_names)) {
   std::unordered_set<std::string_view> seen;
@@ -44,12 +43,10 @@ std::optional<ColumnIndex> Schema::TryGetColumnIndex(std::string_view name) cons
 }
 
 ColumnIndex Schema::ResolveColumnIndex(std::string_view name) const {
-  // 1. 完全相同
   if (const std::optional<ColumnIndex> exact = TryGetColumnIndex(name); exact.has_value()) {
     return *exact;
   }
 
-  // 2. 點號後面相同
   const std::string_view wanted = UnqualifiedName(name);
   std::optional<ColumnIndex> found;
   for (std::uint32_t i = 0; i < num_columns(); ++i) {
@@ -84,4 +81,4 @@ Schema Schema::WithPrefix(std::string_view prefix) const {
   return Schema(std::move(names));
 }
 
-}  // namespace minidb
+}

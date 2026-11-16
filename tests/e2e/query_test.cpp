@@ -29,9 +29,6 @@ std::int64_t RunQuery(const Dataset& dataset, QueryId id, ExecMode mode) {
   return executor.RunScalar();
 }
 
-// ---------------------------------------------------------------------------
-// Phase 1 的完成標準：Q1–Q5 用 interpreter 跑出來的結果與參考實作完全一致。
-// ---------------------------------------------------------------------------
 TEST(EndToEnd, InterpreterMatchesReference) {
   const Dataset dataset = MakeDataset(testutil::SmallSizes());
   for (const QueryId id : kAllQueries) {
@@ -40,10 +37,9 @@ TEST(EndToEnd, InterpreterMatchesReference) {
   }
 }
 
-// 跨 chunk 邊界、而且每個 operator 都要處理好幾千個 batch
 TEST(EndToEnd, InterpreterMatchesReferenceAcrossChunks) {
   DatasetSizes sizes = testutil::SmallSizes();
-  sizes.num_orders = kChunkSize + 1000;  // 兩個 chunk
+  sizes.num_orders = kChunkSize + 1000;
   const Dataset dataset = MakeDataset(sizes);
   ASSERT_EQ(dataset.catalog.GetTable("orders").column(0).num_chunks(), 2u);
 
@@ -53,8 +49,6 @@ TEST(EndToEnd, InterpreterMatchesReferenceAcrossChunks) {
   }
 }
 
-// 固定 seed：同樣的尺寸跑兩次，資料與結果都必須一模一樣。
-// benchmark 的數字要能互相比較就靠這個。
 TEST(EndToEnd, DatasetIsDeterministic) {
   const Dataset a = MakeDataset(testutil::SmallSizes());
   const Dataset b = MakeDataset(testutil::SmallSizes());
@@ -67,7 +61,6 @@ TEST(EndToEnd, DatasetIsDeterministic) {
   }
 }
 
-// 測資的選擇率要符合 docs/design.md 8.3 的設計，不然 Q2 / Q3 的對照就沒意義。
 TEST(EndToEnd, SelectivityMatchesTheDesign) {
   const Dataset dataset = MakeDataset(testutil::SmallSizes());
   const double total = static_cast<double>(dataset.sizes.num_orders);
@@ -79,7 +72,6 @@ TEST(EndToEnd, SelectivityMatchesTheDesign) {
   EXPECT_NEAR(q3, 0.10, 0.03) << "Q3 應該是低選擇率";
 }
 
-// 每個查詢至少要留下一些列，否則測試等於什麼都沒驗
 TEST(EndToEnd, EveryQueryMatchesSomething) {
   const Dataset dataset = MakeDataset(testutil::SmallSizes());
   for (const QueryId id : kAllQueries) {
@@ -88,8 +80,6 @@ TEST(EndToEnd, EveryQueryMatchesSomething) {
   }
 }
 
-// Q3 的門檻比 Q2 高，所以結果一定比較小；Q5 經過 join 與第二個 filter，
-// 一定不超過只有 amount 條件的量。這些不變量跟具體數字無關。
 TEST(EndToEnd, ResultsAreOrderedAsExpected) {
   const Dataset dataset = MakeDataset(testutil::SmallSizes());
   const std::int64_t q1 = RunQuery(dataset, QueryId::kQ1, ExecMode::kInterpreter);
@@ -102,5 +92,5 @@ TEST(EndToEnd, ResultsAreOrderedAsExpected) {
   EXPECT_LT(q5, q1);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

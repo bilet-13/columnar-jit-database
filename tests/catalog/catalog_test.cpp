@@ -24,7 +24,6 @@ TEST(Catalog, CreateAndGet) {
   EXPECT_EQ(catalog.num_tables(), 1u);
   EXPECT_TRUE(catalog.Contains("orders"));
   EXPECT_EQ(&catalog.GetTable("orders"), &orders);
-  // Table 自己把欄位名稱加上前綴
   EXPECT_EQ(orders.schema().column_name(1), "orders.amount");
 }
 
@@ -40,7 +39,6 @@ TEST(Catalog, EmptyTableNameRejected) {
   EXPECT_THROW(catalog.CreateTable("", Schema({"id"})), std::invalid_argument);
 }
 
-// 組查詢計畫時會抓著 Table&，所以之後新增表不能讓舊的參照失效。
 TEST(Catalog, ReferencesStayValidAfterAddingMoreTables) {
   Catalog catalog;
   Table& orders = catalog.CreateTable("orders", Schema({"id", "amount"}));
@@ -74,5 +72,5 @@ TEST(Catalog, ConstLookup) {
   EXPECT_THROW(const_catalog.GetTable("nope"), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

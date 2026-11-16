@@ -6,8 +6,6 @@
 namespace minidb {
 namespace {
 
-// 負載因子的上限。linear probing 在接近滿的時候探測鏈會變長，0.7 是常見的
-// 折衷點。
 constexpr double kMaxLoadFactor = 0.7;
 
 std::uint64_t RoundUpToPowerOfTwo(std::uint64_t value) {
@@ -18,7 +16,7 @@ std::uint64_t RoundUpToPowerOfTwo(std::uint64_t value) {
   return capacity;
 }
 
-}  // namespace
+}
 
 void HashTable::Reserve(std::uint64_t expected_entries) {
   const std::uint64_t wanted = RoundUpToPowerOfTwo(
@@ -39,7 +37,7 @@ void HashTable::Insert(std::int64_t key, std::uint32_t row) {
 
   std::uint64_t slot = SlotFor(key);
   while (entries_[slot].row != kEmpty) {
-    slot = (slot + 1) & mask_;  // 重複的 key 也會佔用新的 slot
+    slot = (slot + 1) & mask_;
   }
   entries_[slot] = Entry{key, row};
   ++num_entries_;
@@ -77,4 +75,4 @@ void HashTable::Rehash(std::uint64_t new_capacity) {
   }
 }
 
-}  // namespace minidb
+}

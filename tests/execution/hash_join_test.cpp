@@ -41,14 +41,12 @@ std::vector<Row> Drain(Operator& op) {
   return rows;
 }
 
-// orders(id, cust_id)  ⋈  customers(id, city_id)
 HashJoinSpec OrdersJoinCustomers(std::uint32_t batch_size = kBatchSize,
                                  bool batched_probe = false) {
-  return HashJoinSpec{/*probe_key=*/1,        /*build_key=*/0, /*probe_num_cols=*/2,
-                      /*build_num_cols=*/2,   batch_size,      batched_probe};
+  return HashJoinSpec{1,        0, 2,
+                      2,   batch_size,      batched_probe};
 }
 
-// 一次一個 row 與批次預取兩條路徑必須給出一樣的結果
 const std::vector<bool>& ProbeModes() {
   static const std::vector<bool> modes = {false, true};
   return modes;
@@ -63,7 +61,6 @@ TEST(HashJoin, OneToOne) {
     SeqScan build(customers, kBatchSize);
     HashJoin join(probe, build, OrdersJoinCustomers(kBatchSize, batched));
 
-    // 輸出欄位 = 左邊兩欄接右邊兩欄
     const std::vector<Row> expected = {{1, 10, 10, 7}, {2, 20, 20, 8}, {3, 10, 10, 7}};
     EXPECT_EQ(Drain(join), expected) << "batched_probe = " << batched;
     EXPECT_EQ(join.build_rows(), 2u);
@@ -71,7 +68,6 @@ TEST(HashJoin, OneToOne) {
   }
 }
 
-// 批次 probe 的兩輪迴圈要處理滿一個 batch 以上的資料
 TEST(HashJoin, BatchedProbeAgreesOnALargerInput) {
   std::vector<Row> order_rows;
   for (std::int64_t i = 0; i < kBatchSize * 2 + 377; ++i) {
@@ -123,7 +119,6 @@ TEST(HashJoin, NoMatchesAtAll) {
   EXPECT_EQ(join.rows_out(), 0u);
 }
 
-// build 端重複 key：一列 probe 配對到多列
 TEST(HashJoin, OneProbeRowMatchesManyBuildRows) {
   const Table orders = MakeTable("orders", {"id", "cust_id"}, {{1, 10}});
   const Table customers =
@@ -135,7 +130,6 @@ TEST(HashJoin, OneProbeRowMatchesManyBuildRows) {
 
   std::vector<Row> rows = Drain(join);
   ASSERT_EQ(rows.size(), 3u);
-  // 配對順序取決於探測順序，所以排序後再比
   std::sort(rows.begin(), rows.end());
   const std::vector<Row> expected = {{1, 10, 10, 7}, {1, 10, 10, 8}, {1, 10, 10, 9}};
   EXPECT_EQ(rows, expected);
@@ -149,7 +143,7 @@ TEST(HashJoin, ManyToMany) {
   SeqScan build(customers, kBatchSize);
   HashJoin join(probe, build, OrdersJoinCustomers());
 
-  EXPECT_EQ(Drain(join).size(), 4u);  // 2 x 2
+  EXPECT_EQ(Drain(join).size(), 4u);
 }
 
 TEST(HashJoin, EmptySideProducesNothing) {
@@ -173,7 +167,6 @@ TEST(HashJoin, EmptySideProducesNothing) {
   }
 }
 
-// 一批 probe 可能產生比 batch_size 更多的配對，要分幾次交出去
 TEST(HashJoin, OutputIsSlicedIntoBatches) {
   std::vector<Row> order_rows;
   for (std::int64_t i = 0; i < 10; ++i) {
@@ -184,7 +177,7 @@ TEST(HashJoin, OutputIsSlicedIntoBatches) {
 
   SeqScan probe(orders, kBatchSize);
   SeqScan build(customers, kBatchSize);
-  HashJoin join(probe, build, OrdersJoinCustomers(/*batch_size=*/3));
+  HashJoin join(probe, build, OrdersJoinCustomers(3));
 
   std::uint32_t batches = 0;
   std::uint32_t rows = 0;
@@ -194,10 +187,9 @@ TEST(HashJoin, OutputIsSlicedIntoBatches) {
     EXPECT_LE(batch->ActiveRows(), 3u);
   }
   EXPECT_EQ(rows, 10u);
-  EXPECT_EQ(batches, 4u);  // 3 + 3 + 3 + 1
+  EXPECT_EQ(batches, 4u);
 }
 
-// probe 端下面接一個 filter，join 必須只看通過的那幾列
 TEST(HashJoin, RespectsASelectionVectorOnTheProbeSide) {
   const Table orders =
       MakeTable("orders", {"id", "cust_id"}, {{1, 10}, {2, 10}, {3, 10}, {4, 10}});
@@ -205,7 +197,6 @@ TEST(HashJoin, RespectsASelectionVectorOnTheProbeSide) {
 
   for (const bool batched : ProbeModes()) {
     SeqScan scan(orders, kBatchSize);
-    // 只留 id > 2
     InterpreterFilter filter(scan, MakeColumnCompare(0, CompareOp::kGt, 2));
     SeqScan build(customers, kBatchSize);
     HashJoin join(filter, build, OrdersJoinCustomers(kBatchSize, batched));
@@ -215,7 +206,6 @@ TEST(HashJoin, RespectsASelectionVectorOnTheProbeSide) {
   }
 }
 
-// build 端的值一定要複製出來；下層的 batch 指標會失效
 TEST(HashJoin, BuildSideSurvivesAcrossManyBatches) {
   std::vector<Row> customer_rows;
   for (std::int64_t i = 0; i < 3000; ++i) {
@@ -225,7 +215,7 @@ TEST(HashJoin, BuildSideSurvivesAcrossManyBatches) {
   const Table orders = MakeTable("orders", {"id", "cust_id"}, {{1, 0}, {2, 2999}});
 
   SeqScan probe(orders, kBatchSize);
-  SeqScan build(customers, kBatchSize);  // 3000 列 = 3 個 batch
+  SeqScan build(customers, kBatchSize);
   HashJoin join(probe, build, OrdersJoinCustomers());
 
   const std::vector<Row> expected = {{1, 0, 0, 0}, {2, 2999, 2999, 5998}};
@@ -239,7 +229,7 @@ TEST(HashJoin, RejectsBadSpec) {
   SeqScan probe(orders, kBatchSize);
   SeqScan build(customers, kBatchSize);
 
-  EXPECT_THROW(HashJoin(probe, build, OrdersJoinCustomers(/*batch_size=*/0)),
+  EXPECT_THROW(HashJoin(probe, build, OrdersJoinCustomers(0)),
                std::invalid_argument);
 
   HashJoinSpec bad_key = OrdersJoinCustomers();
@@ -251,5 +241,5 @@ TEST(HashJoin, RejectsBadSpec) {
   EXPECT_THROW(HashJoin(probe, build, too_wide), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

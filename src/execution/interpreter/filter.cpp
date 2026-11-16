@@ -16,7 +16,7 @@ Batch* InterpreterFilter::Next() {
   while (true) {
     Batch* in = child_->Next();
     if (in == nullptr) {
-      return nullptr;  // 下層沒了，我也沒了
+      return nullptr;
     }
 
     row_.assign(in->num_cols, 0);
@@ -34,7 +34,7 @@ Batch* InterpreterFilter::Next() {
     }
 
     if (sel_.empty()) {
-      continue;  // 整批被篩光，再要一批
+      continue;
     }
 
     out_ = *in;
@@ -45,4 +45,4 @@ Batch* InterpreterFilter::Next() {
   }
 }
 
-}  // namespace minidb
+}

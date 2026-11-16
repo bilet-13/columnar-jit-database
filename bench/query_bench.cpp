@@ -1,7 +1,3 @@
-// Q1–Q5 × 三種執行器（docs/design.md 8.4 的表 A）。
-//
-// 每一次迭代都重建 operator 樹再跑一次查詢。重建包含 hash join 的 build
-// 階段，那是查詢的一部分，應該算進去。測資的產生不算。
 
 #include <benchmark/benchmark.h>
 
@@ -20,7 +16,6 @@ void RunQuery(benchmark::State& state, testutil::QueryId id, ExecMode mode, Simd
   const testutil::Dataset& dataset = bench::FullDataset();
   const LogicalNodePtr plan = testutil::MakePlan(id, dataset.catalog, dataset.sizes);
 
-  // 先跑一次確認這個組合真的算得出東西，benchmark 才不會量到一個壞掉的路徑
   {
     Executor warmup = Executor::Build(*plan, dataset.catalog, mode, kernel);
     if (warmup.RunScalar() == 0) {
@@ -35,7 +30,6 @@ void RunQuery(benchmark::State& state, testutil::QueryId id, ExecMode mode, Simd
     benchmark::DoNotOptimize(result);
   }
 
-  // 每秒處理幾個 orders row
   state.SetItemsProcessed(static_cast<std::int64_t>(state.iterations()) *
                           static_cast<std::int64_t>(dataset.sizes.num_orders));
 }
@@ -57,5 +51,5 @@ int RegisterQueryBenchmarks() {
 
 const int kRegistered = RegisterQueryBenchmarks();
 
-}  // namespace
-}  // namespace minidb
+}
+}

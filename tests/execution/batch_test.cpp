@@ -24,7 +24,7 @@ TEST(Batch, WithoutSelectionEveryRowIsActive) {
 
 TEST(Batch, SelectionVectorSkipsRows) {
   const std::vector<std::int64_t> amount = {250, 80, 300, 42, 900};
-  const std::vector<std::uint16_t> sel = {0, 2, 4};  // 通過 amount > 100 的列
+  const std::vector<std::uint16_t> sel = {0, 2, 4};
   Batch batch;
   batch.cols[0] = amount.data();
   batch.num_cols = 1;
@@ -55,7 +55,6 @@ TEST(Batch, ClearSelectionRestoresAllRows) {
   EXPECT_EQ(batch.Value(0, 2), 3);
 }
 
-// Interpreter 刻意用 batch = 1，解譯開銷才會出現在每一列上
 TEST(ExecMode, InterpreterUsesSingleRowBatches) {
   EXPECT_EQ(BatchSizeFor(ExecMode::kInterpreter), 1u);
   EXPECT_EQ(BatchSizeFor(ExecMode::kVectorized), kBatchSize);
@@ -68,5 +67,5 @@ TEST(ExecMode, Names) {
   EXPECT_EQ(ToString(ExecMode::kJit), "jit");
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

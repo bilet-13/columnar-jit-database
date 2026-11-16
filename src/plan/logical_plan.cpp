@@ -82,7 +82,7 @@ void AppendTree(const LogicalNode& node, int depth, std::string& out) {
   }
 }
 
-}  // namespace
+}
 
 LogicalAggregate::LogicalAggregate(LogicalNodePtr child, AggKind agg, ColumnIndex column)
     : LogicalNode(LogicalKind::kAggregate, AggregateSchema(child, agg, column)),
@@ -100,4 +100,4 @@ std::string ToString(const LogicalNode& node) {
   return out;
 }
 
-}  // namespace minidb
+}

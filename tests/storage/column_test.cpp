@@ -37,10 +37,6 @@ TEST(Column, SingleRow) {
   EXPECT_EQ(column.At(0), 0);
 }
 
-// ---------------------------------------------------------------------------
-// chunk 邊界是這個類別唯一容易寫錯的地方，三個關鍵列數各測一次。
-// ---------------------------------------------------------------------------
-
 TEST(Column, OneRowBeforeChunkBoundary) {
   const Column column = MakeColumn(kChunkSize - 1);
   EXPECT_EQ(column.num_chunks(), 1u);
@@ -59,7 +55,6 @@ TEST(Column, OneRowAfterChunkBoundary) {
   ASSERT_EQ(column.num_chunks(), 2u);
   EXPECT_EQ(column.chunk_rows(0), kChunkSize);
   EXPECT_EQ(column.chunk_rows(1), 1u);
-  // 跨過邊界的那兩列
   EXPECT_EQ(column.At(kChunkSize - 1), static_cast<std::int64_t>(kChunkSize - 1) * 10);
   EXPECT_EQ(column.At(kChunkSize), static_cast<std::int64_t>(kChunkSize) * 10);
 }
@@ -77,7 +72,6 @@ TEST(Column, AtMatchesAppendOrderAcrossChunks) {
   EXPECT_THROW(column.At(num_rows), std::out_of_range);
 }
 
-// 走訪所有 chunk 的連續記憶體，應該剛好重建整個欄位——scan 之後就是這樣讀資料的。
 TEST(Column, WalkingChunksReproducesWholeColumn) {
   const std::uint64_t num_rows = kChunkSize + kBatchSize + 7;
   const Column column = MakeColumn(num_rows);
@@ -96,7 +90,6 @@ TEST(Column, WalkingChunksReproducesWholeColumn) {
   }
 }
 
-// 一個 batch 永遠不跨 chunk 邊界，這是 scan 能零複製的前提。
 TEST(Column, BatchNeverStraddlesChunkBoundary) {
   static_assert(kChunkSize % kBatchSize == 0);
   const Column column = MakeColumn(kChunkSize * 2);
@@ -104,10 +97,6 @@ TEST(Column, BatchNeverStraddlesChunkBoundary) {
     EXPECT_EQ(column.chunk_rows(chunk) % kBatchSize, 0u);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Table
-// ---------------------------------------------------------------------------
 
 Table MakeOrders() {
   return Table("orders", Schema({"id", "cust_id", "amount"}));
@@ -149,5 +138,5 @@ TEST(Table, ColumnIndexOutOfRangeThrows) {
   EXPECT_THROW(orders.column(3), std::out_of_range);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

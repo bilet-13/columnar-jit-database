@@ -1,11 +1,3 @@
-// NEON 版的 SUM（docs/design.md 7.2）。
-//
-// 關鍵不只是「一個指令加兩個數」，而是用四個互相獨立的累加器。單一累加器
-// 的話每次加法都要等前一次的結果，整個迴圈被加法的延遲綁住；四個累加器讓
-// CPU 可以同時跑四條加法鏈，最後再合起來。
-//
-// 這樣做會改變加總的順序，但累加器是 unsigned，加法可交換且 wrap 有定義，
-// 所以結果跟純量版 bit 級相同 —— 這是 aggregate.h 選 uint64 的另一個好處。
 
 #include <cstdint>
 
@@ -41,7 +33,7 @@ std::uint64_t SumAll(const std::int64_t* data, std::uint32_t n) {
   return acc;
 }
 
-#else  // 不是 ARM：退回純量版
+#else
 
 std::uint64_t SumAll(const std::int64_t* data, std::uint32_t n) {
   return scalar::SumAll(data, n);
@@ -49,5 +41,5 @@ std::uint64_t SumAll(const std::int64_t* data, std::uint32_t n) {
 
 #endif
 
-}  // namespace neon
-}  // namespace minidb
+}
+}

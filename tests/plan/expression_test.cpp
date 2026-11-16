@@ -9,7 +9,6 @@
 namespace minidb {
 namespace {
 
-// orders.id, orders.cust_id, orders.amount
 Schema OrdersSchema() {
   return Schema({"orders.id", "orders.cust_id", "orders.amount"});
 }
@@ -44,7 +43,6 @@ TEST(Expression, ConstantIgnoresTheRow) {
   EXPECT_EQ(MakeConstant(42)->Evaluate(row), 42);
 }
 
-// 布林以 0 / 1 表示，這樣節點可以互相組合
 TEST(Expression, ComparisonReturnsZeroOrOne) {
   const ExprPtr pred = MakeColumnCompare(kAmount, CompareOp::kGt, 100);
   EXPECT_EQ(pred->Evaluate(std::vector<std::int64_t>{1, 7, 250}), 1);
@@ -64,7 +62,6 @@ TEST(Expression, AndRejectsEmptyChildren) {
   EXPECT_THROW(And({}), std::invalid_argument);
 }
 
-// 單一條件不必多包一層 And
 TEST(Expression, MakeAndWithOneChildReturnsThatChild) {
   const ExprPtr only = MakeColumnCompare(kAmount, CompareOp::kGt, 100);
   EXPECT_EQ(MakeAnd({only}), only);
@@ -75,10 +72,6 @@ TEST(Expression, ToStringUsesColumnNames) {
                                 MakeColumnCompare(1, CompareOp::kEq, 7)});
   EXPECT_EQ(pred->ToString(OrdersSchema()), "orders.amount > 100 AND orders.cust_id = 7");
 }
-
-// ---------------------------------------------------------------------------
-// 攤平：AST 給 interpreter 走，Predicate 清單給 vectorized / JIT 用
-// ---------------------------------------------------------------------------
 
 TEST(TryFlatten, SingleComparison) {
   std::vector<Predicate> out;
@@ -108,7 +101,6 @@ TEST(TryFlatten, NestedAndIsFlattened) {
   EXPECT_EQ(out.size(), 3u);
 }
 
-// MVP 文法只有 column <op> 常數
 TEST(TryFlatten, RejectsColumnVersusColumn) {
   const ExprPtr pred = MakeComparison(CompareOp::kEq, MakeColumn(0), MakeColumn(1));
   std::vector<Predicate> out;
@@ -137,5 +129,5 @@ TEST(Predicate, MatchesAgreesWithTheAst) {
   }
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

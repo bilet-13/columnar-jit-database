@@ -31,7 +31,6 @@ Batch* VectorizedFilter::Next() {
     const std::uint32_t n = in->n;
     const std::uint32_t bytes = MaskBytes(n);
 
-    // 第一個 predicate 直接產生 mask；其餘的算完再 AND 進來。
     kernels_->compute_mask(predicates_[0], in->cols[predicates_[0].column], n, mask_.data());
     for (std::size_t i = 1; i < predicates_.size(); ++i) {
       kernels_->compute_mask(predicates_[i], in->cols[predicates_[i].column], n,
@@ -39,7 +38,6 @@ Batch* VectorizedFilter::Next() {
       kernels_->and_mask(mask_.data(), scratch_mask_.data(), bytes);
     }
 
-    // 上游如果已經篩過一輪（filter 疊 filter），把它的結果也 AND 進來。
     if (in->sel != nullptr) {
       kernels_->selection_to_mask(in->sel, in->sel_n, n, scratch_mask_.data());
       kernels_->and_mask(mask_.data(), scratch_mask_.data(), bytes);
@@ -48,7 +46,7 @@ Batch* VectorizedFilter::Next() {
     const std::uint32_t selected =
         kernels_->mask_to_selection(mask_.data(), n, selection_.data());
     if (selected == 0) {
-      continue;  // 整批被篩光，再要一批
+      continue;
     }
 
     out_ = *in;
@@ -59,4 +57,4 @@ Batch* VectorizedFilter::Next() {
   }
 }
 
-}  // namespace minidb
+}

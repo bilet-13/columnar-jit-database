@@ -22,15 +22,14 @@ std::uint64_t SumSel(const std::int64_t* data, const std::uint16_t* sel, std::ui
   return acc;
 }
 
-}  // namespace scalar
+}
 
 namespace {
 
 constexpr SumKernels kScalarSum = {&scalar::SumAll, &scalar::SumSel};
-// gather 沒有 NEON 版本，所以 sum_sel 仍然是純量
 constexpr SumKernels kNeonSum = {&neon::SumAll, &scalar::SumSel};
 
-}  // namespace
+}
 
 const SumKernels& AggKernels(SimdKernel kernel) {
   switch (kernel) {
@@ -73,4 +72,4 @@ Batch* Aggregate::Next() {
   return &out_;
 }
 
-}  // namespace minidb
+}

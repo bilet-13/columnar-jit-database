@@ -52,11 +52,10 @@ TEST(InterpreterFilter, OutputCarriesASelectionVector) {
   Batch* batch = filter.Next();
   ASSERT_NE(batch, nullptr);
   ASSERT_NE(batch->sel, nullptr);
-  EXPECT_EQ(batch->n, 3u);      // 下層給了 3 列
-  EXPECT_EQ(batch->sel_n, 2u);  // 其中 2 列通過
+  EXPECT_EQ(batch->n, 3u);
+  EXPECT_EQ(batch->sel_n, 2u);
   EXPECT_EQ(batch->sel[0], 0u);
   EXPECT_EQ(batch->sel[1], 2u);
-  // 欄位指標沒有變，filter 不複製任何值
   EXPECT_EQ(batch->cols[kAmount], table.column(kAmount).chunk_data(0));
 }
 
@@ -69,11 +68,9 @@ TEST(InterpreterFilter, NothingMatches) {
   EXPECT_EQ(filter.rows_out(), 0u);
 }
 
-// 關鍵情形：batch = 1 時，被篩掉的那幾列會讓 filter 拿到「整批都不通過」的
-// batch。它不能回傳空 batch（上層會以為結束），必須自己再要下一批。
 TEST(InterpreterFilter, SkipsFullyFilteredBatches) {
   const Table table = MakeOrders({80, 250, 42, 7, 900, 3});
-  SeqScan scan(table, /*batch_size=*/1);
+  SeqScan scan(table, 1);
   InterpreterFilter filter(scan, MakeColumnCompare(kAmount, CompareOp::kGt, 100));
 
   const std::vector<std::int64_t> expected = {250, 900};
@@ -92,7 +89,6 @@ TEST(InterpreterFilter, ConjunctionOfThreeConditions) {
   EXPECT_EQ(DrainAmounts(filter), expected);
 }
 
-// filter 疊 filter：上面那層看到的是帶 selection vector 的輸入
 TEST(InterpreterFilter, StackedFiltersCompose) {
   const Table table = MakeOrders({50, 150, 500, 850, 950});
   SeqScan scan(table, kBatchSize);
@@ -109,5 +105,5 @@ TEST(InterpreterFilter, RejectsNullPredicate) {
   EXPECT_THROW(InterpreterFilter(scan, nullptr), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

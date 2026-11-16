@@ -45,4 +45,4 @@ Batch* SeqScan::Next() {
   return nullptr;
 }
 
-}  // namespace minidb
+}

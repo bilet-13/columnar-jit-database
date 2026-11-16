@@ -50,7 +50,6 @@ LogicalNodePtr MakePlan(QueryId id, const Catalog& catalog, const DatasetSizes& 
           .Build();
 
     case QueryId::kQ5:
-      // 使用者寫的順序：先 join 大表。Phase 3 的 optimizer 要找出更好的順序。
       return QueryBuilder(catalog)
           .Scan("orders")
           .Filter({Gt("amount", kQ5AmountThreshold)})
@@ -63,4 +62,4 @@ LogicalNodePtr MakePlan(QueryId id, const Catalog& catalog, const DatasetSizes& 
   throw std::invalid_argument("MakePlan: 未知的 QueryId");
 }
 
-}  // namespace minidb::testutil
+}

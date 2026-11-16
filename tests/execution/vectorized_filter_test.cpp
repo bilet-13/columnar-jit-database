@@ -17,7 +17,6 @@ namespace {
 
 constexpr ColumnIndex kAmount = 1;
 
-// 所有 kernel 實作都要通過同一組測試
 const std::vector<SimdKernel>& AllKernels() {
   static const std::vector<SimdKernel> kernels = {SimdKernel::kScalar, SimdKernel::kNeon};
   return kernels;
@@ -44,11 +43,6 @@ std::vector<std::int64_t> DrainAmounts(Operator& op) {
   return values;
 }
 
-// ---------------------------------------------------------------------------
-// Kernel：mask 的位元排列
-// ---------------------------------------------------------------------------
-
-// 確認手寫 NEON 版真的被編進來了，而不是靜靜地退回純量版
 TEST(MaskKernel, NeonKernelsAreCompiledIn) {
 #if defined(__ARM_NEON)
   SUCCEED();
@@ -66,13 +60,11 @@ TEST(MaskKernel, MaskBytesRoundsUp) {
 }
 
 TEST(MaskKernel, ComputeMaskSetsOneBitPerRow) {
-  // row 0..9，只有 amount > 100 的 row 該被設位元
   const std::vector<std::int64_t> column = {200, 50, 300, 10, 400, 0, 500, 1, 600, 2};
   for (const SimdKernel kernel : AllKernels()) {
-    std::vector<std::uint8_t> mask(MaskBytes(10), 0xAA);  // 先填垃圾，確認會被覆寫
+    std::vector<std::uint8_t> mask(MaskBytes(10), 0xAA);
     Kernels(kernel).compute_mask(Predicate{0, CompareOp::kGt, 100}, column.data(), 10,
                                  mask.data());
-    // row 0,2,4,6,8 通過 → 低位元在前
     EXPECT_EQ(mask[0], 0b01010101) << ToString(kernel);
     EXPECT_EQ(mask[1], 0b00000001) << ToString(kernel);
   }
@@ -138,7 +130,6 @@ TEST(MaskKernel, MaskToSelectionEmptyAndFull) {
   }
 }
 
-// 不是 8 的倍數的尾巴最容易寫錯
 TEST(MaskKernel, HandlesTailsThatAreNotAMultipleOfEight) {
   std::mt19937_64 rng(7);
   std::vector<std::int64_t> column(kBatchSize);
@@ -183,10 +174,6 @@ TEST(MaskKernel, SelectionToMaskIsTheInverse) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Operator
-// ---------------------------------------------------------------------------
-
 TEST(VectorizedFilter, KeepsMatchingRows) {
   const Table table = MakeOrders({250, 80, 300, 42, 900});
   for (const SimdKernel kernel : AllKernels()) {
@@ -221,10 +208,9 @@ TEST(VectorizedFilter, NothingMatches) {
   }
 }
 
-// 整個 batch 被篩光時不能回傳空 batch，要自己再要一批
 TEST(VectorizedFilter, SkipsFullyFilteredBatches) {
   std::vector<std::int64_t> amounts(kBatchSize * 3, 1);
-  amounts[kBatchSize * 2 + 5] = 900;  // 只有第三個 batch 有東西通過
+  amounts[kBatchSize * 2 + 5] = 900;
   const Table table = MakeOrders(amounts);
 
   for (const SimdKernel kernel : AllKernels()) {
@@ -246,7 +232,6 @@ TEST(VectorizedFilter, StackedFiltersCompose) {
   }
 }
 
-// 同一份資料、同一個條件，批次版與 interpreter 必須給出完全一樣的結果
 TEST(VectorizedFilter, AgreesWithTheInterpreterOnRandomData) {
   std::mt19937_64 rng(42);
   std::vector<std::int64_t> amounts(kBatchSize * 2 + 377);
@@ -278,5 +263,5 @@ TEST(VectorizedFilter, RejectsEmptyPredicateList) {
   EXPECT_THROW(VectorizedFilter(scan, {}, SimdKernel::kScalar), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

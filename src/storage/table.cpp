@@ -39,4 +39,4 @@ void Table::Reserve(std::uint64_t num_rows) {
   }
 }
 
-}  // namespace minidb
+}

@@ -31,7 +31,7 @@ struct ComputeMaskDispatch {
   }
 };
 
-}  // namespace
+}
 
 void ComputeMask(const Predicate& predicate, const std::int64_t* column, std::uint32_t n,
                  std::uint8_t* mask) {
@@ -64,5 +64,5 @@ void SelectionToMask(const std::uint16_t* sel, std::uint32_t sel_n, std::uint32_
   }
 }
 
-}  // namespace scalar
-}  // namespace minidb
+}
+}

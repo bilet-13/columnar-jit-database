@@ -12,8 +12,6 @@
 namespace minidb {
 namespace {
 
-// Vectorized 與 JIT 的 filter 不走 AST，它們需要攤平後的 (column, op,
-// constant) 清單。MVP 的 WHERE 文法保證攤得平，攤不平就是計畫組錯了。
 std::vector<Predicate> FlattenOrThrow(const Expression& predicate) {
   std::vector<Predicate> predicates;
   if (!TryFlatten(predicate, predicates)) {
@@ -22,7 +20,7 @@ std::vector<Predicate> FlattenOrThrow(const Expression& predicate) {
   return predicates;
 }
 
-}  // namespace
+}
 
 Executor Executor::Build(const LogicalNode& plan, const Catalog& catalog, ExecMode mode,
                          SimdKernel kernel) {
@@ -63,8 +61,6 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
 
     case LogicalKind::kJoin: {
       const auto& join = static_cast<const LogicalJoin&>(node);
-      // 左邊當 probe、右邊當 build。Phase 3 的 optimizer 會改成依估計的
-      // 列數挑較小的那邊當 build。
       Operator* probe = BuildNode(join.left(), catalog, mode, kernel);
       Operator* build = BuildNode(join.right(), catalog, mode, kernel);
 
@@ -74,7 +70,6 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
       spec.probe_num_cols = join.left().schema().num_columns();
       spec.build_num_cols = join.right().schema().num_columns();
       spec.batch_size = batch_size;
-      // batch 只有一個 row 時，兩輪預取沒有東西可以重疊
       spec.batched_probe = mode != ExecMode::kInterpreter;
 
       nodes_.push_back(std::make_unique<HashJoin>(*probe, *build, spec));
@@ -84,7 +79,6 @@ Operator* Executor::BuildNode(const LogicalNode& node, const Catalog& catalog, E
     case LogicalKind::kAggregate: {
       const auto& agg = static_cast<const LogicalAggregate&>(node);
       Operator* child = BuildNode(agg.child(), catalog, mode, kernel);
-      // interpreter 模式連 aggregate 也走純量，基準才是乾淨的「一次一個 row」
       const SimdKernel agg_kernel =
           mode == ExecMode::kInterpreter ? SimdKernel::kScalar : kernel;
       nodes_.push_back(
@@ -119,4 +113,4 @@ std::int64_t Executor::RunScalar() {
   return rows[0][0];
 }
 
-}  // namespace minidb
+}

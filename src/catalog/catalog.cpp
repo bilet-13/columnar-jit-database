@@ -47,4 +47,4 @@ std::vector<std::string> Catalog::table_names() const {
   return names;
 }
 
-}  // namespace minidb
+}

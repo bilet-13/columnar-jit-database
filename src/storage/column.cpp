@@ -8,8 +8,6 @@ void Column::Append(std::int64_t value) {
   if (chunks_.empty() || chunks_.back().size() == kChunkSize) {
     chunks_.emplace_back();
   }
-  // kChunkSize 是 2 的次方，所以 vector 自然的倍數成長剛好停在 kChunkSize，
-  // 不會多配置。
   chunks_.back().push_back(value);
   ++num_rows_;
 }
@@ -44,4 +42,4 @@ std::int64_t Column::At(std::uint64_t row) const {
   return chunks_[row / kChunkSize][row % kChunkSize];
 }
 
-}  // namespace minidb
+}

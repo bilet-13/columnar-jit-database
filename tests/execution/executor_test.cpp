@@ -13,10 +13,6 @@ namespace {
 
 using Row = std::vector<std::int64_t>;
 
-// 小一號的 3 表 chain，手算得出答案：
-//   cities    (id, pop)
-//   customers (id, city_id)
-//   orders    (id, cust_id, amount)
 Catalog MakeCatalog() {
   Catalog catalog;
 
@@ -44,7 +40,6 @@ std::int64_t RunScalar(const Catalog& catalog, const LogicalNodePtr& plan) {
   return executor.RunScalar();
 }
 
-// Q1：整張表的 SUM
 TEST(Executor, SumWholeTable) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog).Scan("orders").Sum("amount").Build();
@@ -57,7 +52,6 @@ TEST(Executor, CountWholeTable) {
   EXPECT_EQ(RunScalar(catalog, plan), 5);
 }
 
-// Q2 / Q3：filter 之後 SUM
 TEST(Executor, FilterThenSum) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan =
@@ -65,7 +59,6 @@ TEST(Executor, FilterThenSum) {
   EXPECT_EQ(RunScalar(catalog, plan), 600 + 700 + 800 + 900);
 }
 
-// Q4：多條件 AND
 TEST(Executor, ConjunctionThenSum) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog)
@@ -78,7 +71,6 @@ TEST(Executor, ConjunctionThenSum) {
 
 TEST(Executor, TwoTableJoin) {
   const Catalog catalog = MakeCatalog();
-  // cust_id = 99 的那筆沒有對應的 customer，會被 join 丟掉
   const LogicalNodePtr plan = QueryBuilder(catalog)
                                   .Scan("orders")
                                   .Join("customers", "orders.cust_id", "customers.id")
@@ -87,7 +79,6 @@ TEST(Executor, TwoTableJoin) {
   EXPECT_EQ(RunScalar(catalog, plan), 600 + 700 + 400 + 800);
 }
 
-// Q5：3 表 chain join + 兩個 filter
 TEST(Executor, ThreeTableChainJoin) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog)
@@ -98,9 +89,6 @@ TEST(Executor, ThreeTableChainJoin) {
                                   .Filter({Gt("cities.pop", 900)})
                                   .Sum("orders.amount")
                                   .Build();
-  // amount > 500 留下 600(c10)、700(c20)、800(c10)、900(c99)
-  // c99 沒有 customer；c20 在 city 2（pop 100）被篩掉
-  // 剩下 600 + 800，兩筆都在 city 1（pop 950）
   EXPECT_EQ(RunScalar(catalog, plan), 1400);
 }
 
@@ -114,7 +102,6 @@ TEST(Executor, CountAfterJoin) {
   EXPECT_EQ(RunScalar(catalog, plan), 4);
 }
 
-// 非聚合計畫：回傳所有列
 TEST(Executor, RunRowsReturnsEveryColumn) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan =
@@ -133,7 +120,6 @@ TEST(Executor, RunScalarRejectsNonScalarPlans) {
   EXPECT_THROW(executor.RunScalar(), std::logic_error);
 }
 
-// JIT 要等 Phase 4
 TEST(Executor, JitModeIsNotImplementedYet) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan =
@@ -141,7 +127,6 @@ TEST(Executor, JitModeIsNotImplementedYet) {
   EXPECT_THROW(Executor::Build(*plan, catalog, ExecMode::kJit), std::logic_error);
 }
 
-// 批次執行器與 interpreter 必須給出完全一樣的答案
 TEST(Executor, VectorizedAgreesWithInterpreter) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog)
@@ -158,7 +143,6 @@ TEST(Executor, VectorizedAgreesWithInterpreter) {
   EXPECT_EQ(vectorized.RunScalar(), interpreted.RunScalar());
 }
 
-// 沒有 filter 的計畫在任何 mode 下都組得起來（只有 filter 有三種實作）
 TEST(Executor, PlansWithoutFiltersBuildInAnyMode) {
   const Catalog catalog = MakeCatalog();
   const LogicalNodePtr plan = QueryBuilder(catalog).Scan("orders").Sum("amount").Build();
@@ -168,5 +152,5 @@ TEST(Executor, PlansWithoutFiltersBuildInAnyMode) {
   }
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

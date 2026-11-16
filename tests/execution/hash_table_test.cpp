@@ -36,7 +36,6 @@ TEST(HashTable, InsertAndFind) {
   EXPECT_FALSE(table.Contains(40));
 }
 
-// join 可以是多對多，所以 build 端允許重複的 key
 TEST(HashTable, DuplicateKeysAllReported) {
   HashTable table;
   table.Insert(7, 0);
@@ -52,7 +51,6 @@ TEST(HashTable, DuplicateKeysAllReported) {
   EXPECT_EQ(table.CountMatches(9), 0u);
 }
 
-// 插到需要重建好幾次，每個 key 都還要找得到
 TEST(HashTable, SurvivesGrowth) {
   HashTable table;
   constexpr std::uint32_t kCount = 5000;
@@ -67,10 +65,9 @@ TEST(HashTable, SurvivesGrowth) {
               std::vector<std::uint32_t>{i})
         << "i = " << i;
   }
-  EXPECT_FALSE(table.Contains(1));  // 不是 3 的倍數
+  EXPECT_FALSE(table.Contains(1));
 }
 
-// 負數與極端值也要正常（乘法 hash 會 wrap around，那是定義好的行為）
 TEST(HashTable, HandlesNegativeAndExtremeKeys) {
   HashTable table;
   const std::vector<std::int64_t> keys = {0, -1, -1000000, INT64_MIN, INT64_MAX};
@@ -98,5 +95,5 @@ TEST(HashTable, RejectsSentinelRow) {
   EXPECT_THROW(table.Insert(1, HashTable::kEmpty), std::invalid_argument);
 }
 
-}  // namespace
-}  // namespace minidb
+}
+}

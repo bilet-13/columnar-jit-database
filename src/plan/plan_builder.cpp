@@ -104,4 +104,4 @@ LogicalNodePtr QueryBuilder::Build() const {
   return root_;
 }
 
-}  // namespace minidb
+}

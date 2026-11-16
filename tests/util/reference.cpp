@@ -6,7 +6,6 @@
 namespace minidb::testutil {
 namespace {
 
-// 刻意用 map 查，不假設 customers.id 剛好等於列號。
 std::unordered_map<std::int64_t, std::size_t> IndexById(
     const std::vector<std::int64_t>& ids) {
   std::unordered_map<std::int64_t, std::size_t> index;
@@ -67,7 +66,7 @@ bool Passes(QueryId id, const Dataset& dataset, std::size_t i) {
   return false;
 }
 
-}  // namespace
+}
 
 std::int64_t ReferenceResult(QueryId id, const Dataset& dataset) {
   if (id == QueryId::kQ5) {
@@ -95,4 +94,4 @@ std::uint64_t ReferenceMatchingRows(QueryId id, const Dataset& dataset) {
   return rows;
 }
 
-}  // namespace minidb::testutil
+}

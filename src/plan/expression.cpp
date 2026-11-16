@@ -41,9 +41,6 @@ bool ApplyCompare(CompareOp op, std::int64_t lhs, std::int64_t rhs) {
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// ColumnRef
-// ---------------------------------------------------------------------------
 std::int64_t ColumnRef::Evaluate(std::span<const std::int64_t> row) const {
   if (index_ >= row.size()) {
     throw std::out_of_range("ColumnRef::Evaluate: 欄位索引超出這一列的寬度");
@@ -58,16 +55,10 @@ std::string ColumnRef::ToString(const Schema& schema) const {
   return "#" + std::to_string(index_);
 }
 
-// ---------------------------------------------------------------------------
-// Constant
-// ---------------------------------------------------------------------------
-std::int64_t Constant::Evaluate(std::span<const std::int64_t> /*row*/) const { return value_; }
+std::int64_t Constant::Evaluate(std::span<const std::int64_t> ) const { return value_; }
 
-std::string Constant::ToString(const Schema& /*schema*/) const { return std::to_string(value_); }
+std::string Constant::ToString(const Schema& ) const { return std::to_string(value_); }
 
-// ---------------------------------------------------------------------------
-// Comparison
-// ---------------------------------------------------------------------------
 Comparison::Comparison(CompareOp op, ExprPtr left, ExprPtr right)
     : Expression(ExprKind::kComparison), op_(op), left_(std::move(left)), right_(std::move(right)) {
   if (left_ == nullptr || right_ == nullptr) {
@@ -76,7 +67,6 @@ Comparison::Comparison(CompareOp op, ExprPtr left, ExprPtr right)
 }
 
 std::int64_t Comparison::Evaluate(std::span<const std::int64_t> row) const {
-  // 布林用 0 / 1 表示
   return ApplyCompare(op_, left_->Evaluate(row), right_->Evaluate(row)) ? 1 : 0;
 }
 
@@ -85,9 +75,6 @@ std::string Comparison::ToString(const Schema& schema) const {
          right_->ToString(schema);
 }
 
-// ---------------------------------------------------------------------------
-// And
-// ---------------------------------------------------------------------------
 And::And(std::vector<ExprPtr> children)
     : Expression(ExprKind::kAnd), children_(std::move(children)) {
   if (children_.empty()) {
@@ -103,7 +90,7 @@ And::And(std::vector<ExprPtr> children)
 std::int64_t And::Evaluate(std::span<const std::int64_t> row) const {
   for (const ExprPtr& child : children_) {
     if (child->Evaluate(row) == 0) {
-      return 0;  // 短路
+      return 0;
     }
   }
   return 1;
@@ -120,9 +107,6 @@ std::string And::ToString(const Schema& schema) const {
   return text;
 }
 
-// ---------------------------------------------------------------------------
-// 工廠函式
-// ---------------------------------------------------------------------------
 ExprPtr MakeColumn(ColumnIndex index) { return std::make_shared<const ColumnRef>(index); }
 
 ExprPtr MakeConstant(std::int64_t value) { return std::make_shared<const Constant>(value); }
@@ -137,14 +121,11 @@ ExprPtr MakeColumnCompare(ColumnIndex column, CompareOp op, std::int64_t constan
 
 ExprPtr MakeAnd(std::vector<ExprPtr> children) {
   if (children.size() == 1) {
-    return children.front();  // 單一條件不必包一層 And
+    return children.front();
   }
   return std::make_shared<const And>(std::move(children));
 }
 
-// ---------------------------------------------------------------------------
-// 攤平
-// ---------------------------------------------------------------------------
 namespace {
 
 bool FlattenInto(const Expression& expr, std::vector<Predicate>& out) {
@@ -160,7 +141,6 @@ bool FlattenInto(const Expression& expr, std::vector<Predicate>& out) {
     }
     case ExprKind::kComparison: {
       const auto& node = static_cast<const Comparison&>(expr);
-      // 只接受 column <op> 常數
       if (node.left().kind() != ExprKind::kColumnRef ||
           node.right().kind() != ExprKind::kConstant) {
         return false;
@@ -171,13 +151,12 @@ bool FlattenInto(const Expression& expr, std::vector<Predicate>& out) {
     }
     case ExprKind::kColumnRef:
     case ExprKind::kConstant:
-      // 光一個欄位或常數不是一個條件
       return false;
   }
   return false;
 }
 
-}  // namespace
+}
 
 bool TryFlatten(const Expression& expr, std::vector<Predicate>& out) {
   out.clear();
@@ -188,4 +167,4 @@ bool TryFlatten(const Expression& expr, std::vector<Predicate>& out) {
   return true;
 }
 
-}  // namespace minidb
+}
