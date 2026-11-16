@@ -5,6 +5,8 @@
 
 add_executable(minidb_tests
   smoke_test.cpp
+  e2e/cross_check.cpp
+  e2e/cross_check_test.cpp
   e2e/query_test.cpp
   catalog/catalog_test.cpp
   common/schema_test.cpp
